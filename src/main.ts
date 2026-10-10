@@ -4,6 +4,7 @@ import { OrbitControls } from "three/examples/jsm/Addons.js";
 
 import * as THREE from "three";
 import * as dat from "dat.gui";
+import { CoralMonitorScenario } from "./CoralMonitorScenario";
 
 let scene: THREE.Scene;
 let renderer: THREE.WebGLRenderer;
@@ -43,7 +44,7 @@ async function main() {
     1,
     2000,
   );
-  camera.position.z = 400;
+  camera.position.z = 10;
 
   controls = new OrbitControls(camera, renderer.domElement);
 
@@ -56,6 +57,9 @@ async function main() {
   animate();
 
   window.addEventListener("resize", window_onResize, false);
+
+  const coralScenario = new CoralMonitorScenario(scene, camera, renderer, gui);
+  coralScenario.init();
 }
 
 main();
