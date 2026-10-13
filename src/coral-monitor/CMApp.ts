@@ -2,16 +2,16 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
 import {
   htmlElement_createFromTemplate,
-  htmlElement_removeClass,
   htmlElement_updateStyle,
-  waitAsync,
 } from "./utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
 import {
-  dev_light_createSimple,
+  createLight_simple,
   rock_createGeometry,
-  rock_createMesh,
+  createMesh_simple,
+  branchCoral_createGeometry,
+  seeded,
 } from "./graphics";
 
 export class CMApp {
@@ -92,7 +92,7 @@ export class CMApp {
 
     this.camera = camera;
 
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new OrbitControls(camera, this.rootElement);
     this.controls = controls;
 
     this.listenerStore["window_onResize"] = this.window_onResize.bind(this);
@@ -153,16 +153,31 @@ export class CMApp {
   init_scene() {
     const { scene } = this;
 
+    const worldSeed = 5838;
+
     scene.add(new THREE.AxesHelper(100));
 
-    const light_dev = dev_light_createSimple();
+    const light_dev = createLight_simple();
     scene.add(light_dev);
 
-    const rock_geom = rock_createGeometry(Math.random() * 1000);
-    const rock_mesh = rock_createMesh(rock_geom, "#524343", {
+    const rock_geom = rock_createGeometry(worldSeed);
+    const rock_mesh = createMesh_simple(rock_geom, "#524343", {
       showWireframe: true,
     });
     scene.add(rock_mesh);
+
+    const branchCoral_geom = branchCoral_createGeometry(
+      2,
+      0,
+      2,
+      1,
+      seeded(worldSeed),
+      4,
+    );
+    const branchCoral_mesh = createMesh_simple(branchCoral_geom, "#47ffa0", {
+      // showWireframe: true,
+    });
+    scene.add(branchCoral_mesh);
   }
 
   showBooting() {
