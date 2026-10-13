@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
 import { CM_APP_CSS_CLASS } from "./const";
+import { htmlElement_addClass, htmlElement_updateStyle } from "./utils";
 
 export class CMApp {
+  private readonly TAG = "CMApp";
+
   private rootElement: HTMLDivElement;
 
   private initRun: boolean = false;
@@ -20,10 +23,15 @@ export class CMApp {
   }
 
   init() {
+    const FN_TAG = `init`;
+    const FN_DEBUG_TAG = `[${this.TAG}::${FN_TAG}]`;
+
     if (this.initRun) {
       return;
     }
     this.initRun = true;
+
+    console.log(`${FN_DEBUG_TAG}. Trigger`);
 
     const { rootElement } = this;
 
@@ -37,7 +45,8 @@ export class CMApp {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    rootElement.classList.add(CM_APP_CSS_CLASS, "root")
+    htmlElement_addClass(rootElement, CM_APP_CSS_CLASS, "root");
+
     rootElement.appendChild(this.renderer.domElement);
 
     const camera = new THREE.PerspectiveCamera(
@@ -46,7 +55,8 @@ export class CMApp {
       1,
       2000,
     );
-    camera.position.z = 5;
+    camera.position.set(0, 5, 5);
+    camera.lookAt(0, 0, 0);
 
     this.camera = camera;
 
@@ -59,11 +69,11 @@ export class CMApp {
     this.init_scene();
 
     this.requestRender();
+
+    this.dev_resetCamPosition();
   }
 
-  dispose() {
-    // TODO
-  }
+  dispose() {}
 
   render(dt: number) {
     this.requestRender();
@@ -75,7 +85,12 @@ export class CMApp {
   }
 
   resize(newWidth: number, newHeight: number) {
-    const { camera, renderer } = this;
+    const { camera, renderer, rootElement } = this;
+
+    htmlElement_updateStyle(rootElement, {
+      width: `${newWidth}px`,
+      height: `${newHeight}px`,
+    });
 
     camera.aspect = newWidth / newHeight;
     camera.updateProjectionMatrix();
@@ -87,7 +102,15 @@ export class CMApp {
   }
 
   init_scene() {
-    // TODO
+    const { scene } = this;
+
+    scene.add(new THREE.AxesHelper(100));
+
+    const geometry = new THREE.CylinderGeometry(5, 5, 20, 32);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const cylinder = new THREE.Mesh(geometry, material);
+
+    scene.add(cylinder);
   }
 
   // @region [events]
@@ -108,4 +131,12 @@ export class CMApp {
     this.resize(newWidth, newHeight);
   }
   // @endregion [events]
+
+  // @region [dev_util]
+  dev_resetCamPosition() {
+    const { camera } = this;
+    camera.position.set(10, 10, 10);
+    camera.lookAt(0, 0, 0);
+  }
+  // @endregion [dev_util]
 }
