@@ -35,3 +35,23 @@ export function htmlElement_removeClass(
 
   el.classList.remove(...listClassName);
 }
+
+export function htmlElement_createFromTemplate<T extends HTMLElement>(
+  strTemplate: string,
+): T {
+  const template = document.createElement("template");
+  template.innerHTML = strTemplate.trim();
+  return template.content.firstElementChild as T;
+}
+
+export async function waitAsync(msec: number) {
+  if (msec <= 0) {
+    return;
+  }
+
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, msec);
+  });
+}

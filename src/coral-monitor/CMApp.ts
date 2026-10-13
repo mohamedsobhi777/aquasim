@@ -1,12 +1,21 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
-import { CM_APP_CSS_CLASS } from "./const";
-import { htmlElement_addClass, htmlElement_updateStyle } from "./utils";
+import {
+  htmlElement_createFromTemplate,
+  htmlElement_removeClass,
+  htmlElement_updateStyle,
+  waitAsync,
+} from "./utils";
+
+import CMApp_htmlTemplate from "./CMApp.html?raw";
 
 export class CMApp {
   private readonly TAG = "CMApp";
 
-  private rootElement: HTMLDivElement;
+  private containerElement: HTMLDivElement;
+
+  private rootElement!: HTMLDivElement;
+  private bootOverlayElement!: HTMLDivElement;
 
   private initRun: boolean = false;
 
@@ -15,14 +24,19 @@ export class CMApp {
   private camera!: THREE.PerspectiveCamera;
   private controls!: OrbitControls;
 
-  constructor(rootElement: HTMLDivElement | string) {
-    this.rootElement =
-      typeof rootElement === "string"
-        ? (document.querySelector(rootElement) as HTMLDivElement)
-        : rootElement;
+  private listenerStore: { [key: string]: Function } = {};
+
+  private timerId_loadingEffect?: number;
+  private loadingDot_cnt: number = 0;
+
+  constructor(containerElement: HTMLDivElement | string) {
+    this.containerElement =
+      typeof containerElement === "string"
+        ? (document.querySelector(containerElement) as HTMLDivElement)
+        : containerElement;
   }
 
-  init() {
+  async init() {
     const FN_TAG = `init`;
     const FN_DEBUG_TAG = `[${this.TAG}::${FN_TAG}]`;
 
@@ -33,7 +47,20 @@ export class CMApp {
 
     console.log(`${FN_DEBUG_TAG}. Trigger`);
 
-    const { rootElement } = this;
+    const { containerElement } = this;
+
+    const rootElement =
+      htmlElement_createFromTemplate<HTMLDivElement>(CMApp_htmlTemplate);
+    this.rootElement = rootElement;
+
+    containerElement.appendChild(rootElement);
+
+    const bootOverlayElement = rootElement.querySelector(
+      ".boot-overlay",
+    ) as HTMLDivElement;
+    this.bootOverlayElement = bootOverlayElement;
+
+    this.showBooting();
 
     const scene = new THREE.Scene();
     this.scene = scene;
@@ -44,8 +71,6 @@ export class CMApp {
     renderer.setClearColor(0xa0a0a0);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-
-    htmlElement_addClass(rootElement, CM_APP_CSS_CLASS, "root");
 
     rootElement.appendChild(this.renderer.domElement);
 
@@ -63,7 +88,11 @@ export class CMApp {
     const controls = new OrbitControls(camera, renderer.domElement);
     this.controls = controls;
 
-    window.addEventListener("resize", this.window_onResize.bind(this));
+    this.listenerStore["window_onResize"] = this.window_onResize.bind(this);
+    window.addEventListener(
+      "resize",
+      this.listenerStore["window_onResize"] as EventListener,
+    );
 
     this.resize(window.innerWidth, window.innerHeight);
     this.init_scene();
@@ -71,9 +100,22 @@ export class CMApp {
     this.requestRender();
 
     this.dev_resetCamPosition();
+
+    await waitAsync(2000);
+    this.hideBooting();
   }
 
-  dispose() {}
+  dispose() {
+    const FN_TAG = `dispose`;
+    const FN_DEBUG_TAG = `[${this.TAG}::${FN_TAG}]`;
+
+    console.log(`${FN_DEBUG_TAG}. Trigger`);
+
+    window.removeEventListener(
+      "resize",
+      this.listenerStore["window_onResize"] as EventListener,
+    );
+  }
 
   render(dt: number) {
     this.requestRender();
@@ -113,6 +155,68 @@ export class CMApp {
     scene.add(cylinder);
   }
 
+  showBooting() {
+    // @region [sub]
+
+    const updateLoadingText = () => {
+      const elLoadingText =
+        this.bootOverlayElement.querySelector(".loading-text");
+      elLoadingText!.textContent = "Loading" + ".".repeat(this.loadingDot_cnt);
+    };
+
+    // @endregion [sub]
+
+    htmlElement_updateStyle(this.bootOverlayElement, {
+      display: "flex",
+    });
+
+    updateLoadingText();
+
+    if (this.timerId_loadingEffect !== undefined) {
+      clearInterval(this.timerId_loadingEffect);
+      this.timerId_loadingEffect = undefined;
+    }
+
+    this.timerId_loadingEffect = window.setInterval(() => {
+      updateLoadingText();
+
+      ++this.loadingDot_cnt;
+      if (this.loadingDot_cnt > 4) {
+        this.loadingDot_cnt = 1;
+      }
+    }, 500);
+  }
+
+  hideBooting() {
+    const { bootOverlayElement } = this;
+
+    if (this.timerId_loadingEffect !== undefined) {
+      clearInterval(this.timerId_loadingEffect);
+      this.timerId_loadingEffect = undefined;
+    }
+
+    const elLoadingText =
+      this.bootOverlayElement.querySelector(".loading-text");
+    elLoadingText!.textContent = "Loading successful";
+
+    htmlElement_updateStyle(bootOverlayElement, {
+      opacity: "0",
+      transition: "opacity 1s ease",
+    });
+
+    bootOverlayElement.addEventListener(
+      "transitionend",
+      () => {
+        htmlElement_updateStyle(bootOverlayElement, {
+          opacity: "1",
+          display: "none",
+          transition: "",
+        });
+      },
+      { once: true },
+    );
+  }
+
   // @region [events]
   window_onResize() {
     const { renderer } = this;
@@ -121,8 +225,9 @@ export class CMApp {
     const curWidth = curSize.x;
     const curHeight = curSize.y;
 
-    const newWidth = window.innerWidth;
-    const newHeight = window.innerHeight;
+    const container_bound = this.containerElement.getBoundingClientRect();
+    const newWidth = container_bound.width;
+    const newHeight = container_bound.height;
 
     if (curWidth == newWidth && curHeight == newHeight) {
       return;

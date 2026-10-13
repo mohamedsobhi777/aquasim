@@ -1,3 +1,17 @@
 .cm-app.root {
   display: flex;
+  position: relative;
+}
+
+.cm-app.boot-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #000000;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  color: white;
 }
