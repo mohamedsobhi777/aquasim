@@ -1,15 +1,10 @@
 import "./style.css";
+import "./coral-monitor/style.css";
 
-import { CoralMonitorApp } from "./CoralMonitorApp";
-
-function window_onResize() {
-  // camera.aspect = window.innerWidth / window.innerHeight;
-  // camera.updateProjectionMatrix();
-  // renderer.setSize(window.innerWidth, window.innerHeight);
-}
+import { CMApp } from "./coral-monitor/CMApp";
 
 async function main() {
-  const app = new CoralMonitorApp("root");
+  const app = new CMApp("#root");
   app.init();
 }
 
