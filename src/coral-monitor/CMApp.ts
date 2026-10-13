@@ -8,6 +8,11 @@ import {
 } from "./utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
+import {
+  dev_light_createSimple,
+  rock_createGeometry,
+  rock_createMesh,
+} from "./graphics";
 
 export class CMApp {
   private readonly TAG = "CMApp";
@@ -65,7 +70,9 @@ export class CMApp {
     const scene = new THREE.Scene();
     this.scene = scene;
 
-    const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+    });
     this.renderer = renderer;
 
     renderer.setClearColor(0xa0a0a0);
@@ -77,7 +84,7 @@ export class CMApp {
     const camera = new THREE.PerspectiveCamera(
       70,
       window.innerWidth / window.innerHeight,
-      1,
+      0.1,
       2000,
     );
     camera.position.set(0, 5, 5);
@@ -101,7 +108,7 @@ export class CMApp {
 
     this.dev_resetCamPosition();
 
-    await waitAsync(2000);
+    // await waitAsync(2000);
     this.hideBooting();
   }
 
@@ -148,11 +155,14 @@ export class CMApp {
 
     scene.add(new THREE.AxesHelper(100));
 
-    const geometry = new THREE.CylinderGeometry(5, 5, 20, 32);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-    const cylinder = new THREE.Mesh(geometry, material);
+    const light_dev = dev_light_createSimple();
+    scene.add(light_dev);
 
-    scene.add(cylinder);
+    const rock_geom = rock_createGeometry(Math.random() * 1000);
+    const rock_mesh = rock_createMesh(rock_geom, "#524343", {
+      showWireframe: true,
+    });
+    scene.add(rock_mesh);
   }
 
   showBooting() {
