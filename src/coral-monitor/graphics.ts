@@ -50,7 +50,7 @@ export function rock_createGeometry(seed: number) {
  * NOTE: The zero point of the cylinder is at the midpoint between points a and b.
  * @returns {THREE.CylinderGeometry}
  */
-export function cylinder_createGeometry(
+function cylinder_createGeometry(
   a: THREE.Vector3,
   b: THREE.Vector3,
   radiusA: number,
@@ -80,7 +80,7 @@ export function cylinder_createGeometry(
 }
 
 /**
- * Create a branching coral
+ * Create a branching coral. The base of the coral is at the specified origin (x, y, z).
  *
  */
 export function branchCoral_createGeometry(
@@ -89,19 +89,19 @@ export function branchCoral_createGeometry(
   z: number,
   size: number,
   rng: GetRandomFunc,
-  levels = 4,
+  branchingLevelCnt = 4,
 ) {
   const origin = new THREE.Vector3(x, y, z);
   const angle = rng() * TAU;
 
   const segment_list: Array<THREE.BufferGeometry> = [];
 
-  const recurse = (
+  const grow = (
     start: THREE.Vector3,
     dir: THREE.Vector3,
     length: number,
     radius: number,
-    level: number,
+    branchLevel: number,
   ) => {
     const end = start.clone().addScaledVector(dir, length);
     const mid = start
@@ -141,7 +141,7 @@ export function branchCoral_createGeometry(
 
     segment_list.push(branch);
 
-    if (level <= 0) {
+    if (branchLevel <= 0) {
       const tip = end.clone().addScaledVector(dir, length * 0.12);
       const branch = cylinder_createGeometry(
         end,
@@ -155,7 +155,7 @@ export function branchCoral_createGeometry(
       return;
     }
 
-    const forks = level > 1 ? 3 : 2;
+    const forks = branchLevel > 1 ? 3 : 2;
     for (let j = 0; j < forks; j++) {
       const nd = new THREE.Vector3(
         (rng() - 0.5) * 1.5,
@@ -163,7 +163,7 @@ export function branchCoral_createGeometry(
         (rng() - 0.5) * 1.5,
       );
       nd.addScaledVector(dir, 0.5).normalize();
-      recurse(end, nd, length * (0.63 + rng() * 0.1), radius * 0.69, level - 1);
+      grow(end, nd, length * (0.63 + rng() * 0.1), radius * 0.69, branchLevel - 1);
     }
   };
 
@@ -188,7 +188,7 @@ export function branchCoral_createGeometry(
       Math.sin(a) * 0.55,
     );
 
-    recurse(crown, dir.normalize(), size * 0.27, size * 0.041, levels);
+    grow(crown, dir.normalize(), size * 0.27, size * 0.041, branchingLevelCnt);
   }
 
   const mergedGeometry = mergeGeometry(segment_list);
