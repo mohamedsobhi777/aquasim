@@ -1,4 +1,4 @@
-# COMP 5411 2026-Fall Project
+# Coral World
 
 ## Getting Started
 
