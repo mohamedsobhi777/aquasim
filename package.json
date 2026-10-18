@@ -12,12 +12,15 @@
     "@types/dat.gui": "^0.7.13",
     "@types/lodash": "^4.17.26",
     "@types/three": "^0.186.0",
+    "@types/xxhashjs": "^0.2.4",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   },
   "dependencies": {
     "dat.gui": "^0.7.9",
+    "fastnoise-lite": "^1.1.1",
     "lodash": "^4.18.1",
-    "three": "^0.186.0"
+    "three": "^0.186.0",
+    "xxhashjs": "^0.2.2"
   }
 }
