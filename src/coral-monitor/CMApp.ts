@@ -175,9 +175,10 @@ export class CMApp {
         new THREE.Vector3(-0.1, 0.5, 0),
         new THREE.Vector3(0.1, 1, 0),
       ],
-      0.1,
+      0.05,
+      0.005,
+      0.002,
       0.01,
-      0.02,
       0.8,
       0.6,
     );

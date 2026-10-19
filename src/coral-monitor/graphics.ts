@@ -42,25 +42,33 @@ export function coralThorn_createGeom(
   return thorn_geom;
 }
 
-// Lookup table for the thorn profile: height (0..1) at a normalized distance r (0..1)
-// from the thorn center. Uses the same Bézier as coralThorn_createGeom, with
-// radius 1 and length 1.
-function thornHeightLUT(
-  control_baseRatio: number,
-  control_tipRatio: number,
-  samples = 64,
+export function coralBranch_createMesh(
+  listBasisPoint: Array<THREE.Vector3>,
+  radius: number,
+  thorn_radius: number,
+  thorn_spacing: number,
+  thorn_length: number,
+  thorn_control_baseRatio: number,
+  thorn_control_tipRatio: number,
 ) {
-  const profile = new THREE.Path();
-  profile.moveTo(1, 0);
-  profile.bezierCurveTo(1, control_baseRatio, control_tipRatio, 1, 0, 1);
-  const pts = profile.getPoints(samples); // r goes 1 -> 0 while y goes 0 -> 1
+  // @region [sub]
+  const thorn_getHeightAt = (
+    r: number,
+    thorn_normalizedCurvePts: Array<THREE.Vector2>,
+  ) => {
+    if (r >= 1) {
+      return 0;
+    }
 
-  return (r: number) => {
-    if (r >= 1) return 0;
-    if (r <= 0) return 1;
-    for (let n = 0; n < pts.length - 1; n++) {
-      const a = pts[n],
-        b = pts[n + 1]; // a.x >= r >= b.x
+    if (r <= 0) {
+      return 1;
+    }
+
+    for (let n = 0; n < thorn_normalizedCurvePts.length - 1; ++n) {
+      // a.x >= r >= b.x
+      const a = thorn_normalizedCurvePts[n];
+      const b = thorn_normalizedCurvePts[n + 1];
+
       if (r <= a.x && r >= b.x) {
         const t = (a.x - r) / (a.x - b.x || 1);
         return a.y + (b.y - a.y) * t;
@@ -68,70 +76,125 @@ function thornHeightLUT(
     }
     return 0;
   };
-}
 
-export function coralBranch_createMesh(
-  listBasisPoint: Array<THREE.Vector3>,
-  radius: number,
-  thornRadius: number,
-  thornLength: number,
-  control_baseRatio: number,
-  control_tipRatio: number,
-) {
-  const radialSegmentCnt = 160;
-  const tubeSegmentCnt = 160;
-  const tubeClosed = false;
+  const thorn_getBaseHash = () => {
+    const xxh = XXH.h64(0xabcd);
 
-  const curve = new THREE.CatmullRomCurve3(listBasisPoint);
+    for (const pt of listBasisPoint) {
+      xxh.update(`[${pt.x},${pt.y},${pt.z}]`);
+    }
+
+    xxh.update(
+      `[${thorn_radius},${thorn_length},${thorn_control_baseRatio},${thorn_control_tipRatio}]`,
+    );
+
+    return xxh;
+  };
+
+  const thorn_getCenterNoise = () => {
+    const xxh = thorn_getBaseHash();
+    xxh.update("thorncenter");
+
+    const randSeed = xxh.digest().toNumber();
+    const noise = new FastNoiseLite(randSeed);
+
+    return noise;
+  };
+
+  const thorn_getHeightNoise = () => {
+    const xxh = thorn_getBaseHash();
+    xxh.update("thornheight");
+
+    const randSeed = xxh.digest().toNumber();
+    const noise = new FastNoiseLite(randSeed);
+    noise.SetFrequency(0.01);
+
+    return noise;
+  };
+  // @endregion [sub]
+
+  const tube_radialSegCnt = 128;
+  const tube_alongSegCnt = 128;
+  const tube_closed = false;
+  const thorn_curvePointSampleCnt = 64;
+
+  const thorn_normalizedCurvePath = new THREE.Path();
+  thorn_normalizedCurvePath.moveTo(1, 0);
+  thorn_normalizedCurvePath.bezierCurveTo(
+    1,
+    thorn_control_baseRatio,
+    thorn_control_tipRatio,
+    1,
+    0,
+    1,
+  );
+  const thorn_normalizedCurvePts = thorn_normalizedCurvePath.getPoints(
+    thorn_curvePointSampleCnt,
+  );
+
+  const tube_curve = new THREE.CatmullRomCurve3(listBasisPoint);
   const tube_geom = new THREE.TubeGeometry(
-    curve,
-    tubeSegmentCnt,
+    tube_curve,
+    tube_alongSegCnt,
     radius,
-    radialSegmentCnt,
-    tubeClosed,
+    tube_radialSegCnt,
+    tube_closed,
   );
 
-  const heightAt = thornHeightLUT(control_baseRatio, control_tipRatio);
+  const tube_alongSegLen = tube_curve.getLength() / tube_alongSegCnt;
+  const tube_radialSegLen = 2 * radius * Math.sin(TAU / tube_radialSegCnt / 2);
 
-  const tubeSegLen = curve.getLength() / tubeSegmentCnt;
-  const radialSegLen = 2 * radius * Math.sin(TAU / radialSegmentCnt);
+  const thorn_cellSize = 2 * thorn_radius + thorn_spacing;
 
-  const thorn_tubeSegCnt = Math.ceil(thornLength / tubeSegLen);
-  const thorn_radialSegCnt = Math.ceil(thornRadius / radialSegLen);
-
-  const thorn_alongTubeCnt = Math.floor(tubeSegmentCnt / thorn_tubeSegCnt);
-  const thorn_alongRadialCnt = Math.floor(
-    radialSegmentCnt / thorn_radialSegCnt,
+  const thorn_alongSegCnt = Math.ceil((2 * thorn_cellSize) / tube_alongSegLen);
+  const thorn_radialSegCnt = Math.ceil(
+    (2 * thorn_cellSize) / tube_radialSegLen,
   );
 
-  const pos = tube_geom.attributes.position as THREE.BufferAttribute;
-  const nor = tube_geom.attributes.normal as THREE.BufferAttribute;
+  const thorn_alongCnt = Math.floor(tube_alongSegCnt / thorn_alongSegCnt);
+  const thorn_radialCnt = Math.floor(tube_radialSegCnt / thorn_radialSegCnt);
 
-  for (let i = 0; i <= tubeSegmentCnt; ++i) {
-    const ci = Math.floor(i / thorn_tubeSegCnt);
-    if (ci >= thorn_alongTubeCnt) {
+  let pos = tube_geom.attributes.position as THREE.BufferAttribute;
+  let nor = tube_geom.attributes.normal as THREE.BufferAttribute;
+
+  const thorn_centerNoise = thorn_getCenterNoise();
+  const thorn_heightNoise = thorn_getHeightNoise();
+
+  for (let i = 0; i <= tube_alongSegCnt; ++i) {
+    const thorn_i = Math.floor(i / thorn_alongSegCnt);
+    if (thorn_i >= thorn_alongCnt) {
       continue;
     }
 
-    for (let j = 0; j <= radialSegmentCnt; ++j) {
-      const cj = Math.floor(j / thorn_alongRadialCnt);
-      if (cj >= thorn_alongRadialCnt) {
+    for (let j = 0; j <= tube_radialSegCnt; ++j) {
+      const thorn_j = Math.floor(j / thorn_radialSegCnt);
+      if (thorn_j >= thorn_radialCnt) {
         continue;
       }
 
+      let thorn_center_i = thorn_i * thorn_alongSegCnt + thorn_alongSegCnt / 2;
+      let thorn_center_j =
+        thorn_j * thorn_radialSegCnt + thorn_radialSegCnt / 2;
+
+      const ACCEPT_RANGE_RATIO = 0.8;
+
+      thorn_center_i +=
+        thorn_alongSegCnt * 0.5 * ACCEPT_RANGE_RATIO * thorn_centerNoise.GetNoise(i, j);
+      thorn_center_j +=
+        thorn_radialSegCnt * 0.5 * ACCEPT_RANGE_RATIO * thorn_centerNoise.GetNoise(i, j);
+
       // Distance from the cell center, in world units
-      const di =
-        (i - (ci * thorn_tubeSegCnt + thorn_tubeSegCnt / 2)) / thorn_tubeSegCnt;
-      const dj =
-        (j - (cj * thorn_radialSegCnt + thorn_radialSegCnt / 2)) /
-        thorn_radialSegCnt;
-      const d = Math.hypot(di, dj);
+      const di = (i - thorn_center_i) * tube_alongSegLen;
+      const dj = (j - thorn_center_j) * tube_radialSegLen;
+      const d = Math.hypot(di, dj) / thorn_radius;
       if (d >= 1) {
         continue;
       }
 
-      const h = thornLength * heightAt(d);
-      const idx = i * (radialSegmentCnt + 1) + j;
+      let h = thorn_getHeightAt(d, thorn_normalizedCurvePts) * thorn_length;
+      h *= Math.abs(thorn_heightNoise.GetNoise(i, j));
+
+      const idx = i * (tube_radialSegCnt + 1) + j;
       pos.setXYZ(
         idx,
         pos.getX(idx) + nor.getX(idx) * h,
@@ -144,26 +207,31 @@ export function coralBranch_createMesh(
 
   // Recompute normals for lighting, then average them across the seam
   // so the duplicated column doesn't leave a visible line
+
   tube_geom.computeVertexNormals();
-  const n = tube_geom.attributes.normal as THREE.BufferAttribute;
-  const tmp = new THREE.Vector3(),
-    tmp2 = new THREE.Vector3();
-  for (let i = 0; i <= tubeSegmentCnt; i++) {
-    const a = i * (radialSegmentCnt + 1),
-      b = a + radialSegmentCnt;
+
+  nor = tube_geom.attributes.normal as THREE.BufferAttribute;
+
+  const tmp = new THREE.Vector3();
+  const tmp2 = new THREE.Vector3();
+
+  for (let i = 0; i <= tube_alongSegCnt; i++) {
+    const a = i * (tube_radialSegCnt + 1);
+    const b = a + tube_radialSegCnt;
     tmp
-      .fromBufferAttribute(n, a)
-      .add(tmp2.fromBufferAttribute(n, b))
+      .fromBufferAttribute(nor, a)
+      .add(tmp2.fromBufferAttribute(nor, b))
       .normalize();
-    n.setXYZ(a, tmp.x, tmp.y, tmp.z);
-    n.setXYZ(b, tmp.x, tmp.y, tmp.z);
+    nor.setXYZ(a, tmp.x, tmp.y, tmp.z);
+    nor.setXYZ(b, tmp.x, tmp.y, tmp.z);
   }
-  n.needsUpdate = true;
+  nor.needsUpdate = true;
+
   tube_geom.computeBoundingSphere();
 
   const tube_mesh = new THREE.Mesh(
     tube_geom,
-    new THREE.MeshStandardMaterial({ color: "#695f5f" }),
+    new THREE.MeshStandardMaterial({ color: "#d59a58" }),
   );
 
   return tube_mesh;
