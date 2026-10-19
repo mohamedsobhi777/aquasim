@@ -51,6 +51,16 @@ export function coralBranch_createMesh(
   thorn_control_baseRatio: number,
   thorn_control_tipRatio: number,
 ) {
+  const tube_radialSegCnt = 128;
+  const tube_alongSegCnt = 128;
+  const tube_closed = false;
+  const thorn_curvePointSampleCnt = 64;
+
+  const tube_curve = new THREE.CatmullRomCurve3(listBasisPoint);
+
+  const tube_alongSegLen = tube_curve.getLength() / tube_alongSegCnt;
+  const tube_radialSegLen = 2 * radius * Math.sin(TAU / tube_radialSegCnt / 2);
+
   // @region [sub]
   const thorn_getHeightAt = (
     r: number,
@@ -111,12 +121,57 @@ export function coralBranch_createMesh(
 
     return noise;
   };
+
+  const tubeCap_createGeom = () => {
+    const capHeight = 0.1;
+
+    const tubeCap_curvePath = new THREE.Path();
+    tubeCap_curvePath.moveTo(radius, 0);
+    tubeCap_curvePath.bezierCurveTo(
+      radius,
+      capHeight * 0.55,
+      radius * 0.55,
+      capHeight,
+      0,
+      capHeight,
+    );
+
+    const tubeCap_geom = new THREE.LatheGeometry(
+      tubeCap_curvePath.getPoints(32),
+      tube_radialSegCnt,
+    );
+
+    // Frame of the end ring
+    const idx = tube_alongSegCnt;
+    const T = tube_geom.tangents[idx].clone();
+    const N = tube_geom.normals[idx].clone();
+    const B = tube_geom.binormals[idx].clone();
+    const P = tube_curve.getPointAt(1);
+
+    // Map the lathe's axes (X, Y, Z) onto the tube frame so lathe vertex k
+    // lands exactly on tube vertex k of that ring:
+    //   end:   X = -B, Y =  T, Z = -N
+    //   start: X =  B, Y = -T, Z = -N
+    const X = B.clone().negate();
+    const Y = T;
+    const Z = N.clone().negate();
+
+    const m = new THREE.Matrix4().makeBasis(X, Y, Z).setPosition(P);
+    tubeCap_geom.applyMatrix4(m); // also transforms the normals
+
+    return tubeCap_geom;
+  };
   // @endregion [sub]
 
-  const tube_radialSegCnt = 128;
-  const tube_alongSegCnt = 128;
-  const tube_closed = false;
-  const thorn_curvePointSampleCnt = 64;
+  const tube_geom = new THREE.TubeGeometry(
+    tube_curve,
+    tube_alongSegCnt,
+    radius,
+    tube_radialSegCnt,
+    tube_closed,
+  );
+
+  const tubeCap_geom = tubeCap_createGeom();
 
   const thorn_normalizedCurvePath = new THREE.Path();
   thorn_normalizedCurvePath.moveTo(1, 0);
@@ -131,18 +186,6 @@ export function coralBranch_createMesh(
   const thorn_normalizedCurvePts = thorn_normalizedCurvePath.getPoints(
     thorn_curvePointSampleCnt,
   );
-
-  const tube_curve = new THREE.CatmullRomCurve3(listBasisPoint);
-  const tube_geom = new THREE.TubeGeometry(
-    tube_curve,
-    tube_alongSegCnt,
-    radius,
-    tube_radialSegCnt,
-    tube_closed,
-  );
-
-  const tube_alongSegLen = tube_curve.getLength() / tube_alongSegCnt;
-  const tube_radialSegLen = 2 * radius * Math.sin(TAU / tube_radialSegCnt / 2);
 
   const thorn_cellSize = 2 * thorn_radius + thorn_spacing;
 
@@ -179,9 +222,15 @@ export function coralBranch_createMesh(
       const ACCEPT_RANGE_RATIO = 0.8;
 
       thorn_center_i +=
-        thorn_alongSegCnt * 0.5 * ACCEPT_RANGE_RATIO * thorn_centerNoise.GetNoise(i, j);
+        thorn_alongSegCnt *
+        0.5 *
+        ACCEPT_RANGE_RATIO *
+        thorn_centerNoise.GetNoise(i, j);
       thorn_center_j +=
-        thorn_radialSegCnt * 0.5 * ACCEPT_RANGE_RATIO * thorn_centerNoise.GetNoise(i, j);
+        thorn_radialSegCnt *
+        0.5 *
+        ACCEPT_RANGE_RATIO *
+        thorn_centerNoise.GetNoise(i, j);
 
       // Distance from the cell center, in world units
       const di = (i - thorn_center_i) * tube_alongSegLen;
@@ -229,10 +278,12 @@ export function coralBranch_createMesh(
 
   tube_geom.computeBoundingSphere();
 
-  const tube_mesh = new THREE.Mesh(
-    tube_geom,
-    new THREE.MeshStandardMaterial({ color: "#d59a58" }),
-  );
+  const material = new THREE.MeshStandardMaterial({ color: "#d59a58" });
+
+  const tube_mesh = new THREE.Mesh(tube_geom, material);
+  const tubeCap_mesh = new THREE.Mesh(tubeCap_geom, material);
+
+  tube_mesh.add(tubeCap_mesh);
 
   return tube_mesh;
 }
