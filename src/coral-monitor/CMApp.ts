@@ -7,13 +7,7 @@ import {
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
 import {
-  createLight_simple,
-  rock_createGeometry,
-  createMesh_simple,
-  branchCoral_createGeometry,
-  seeded,
-  branchCoral_generateMesh,
-  branchCoral2,
+  createLight_simple, coralBranch_createMesh
 } from "./graphics";
 
 export class CMApp {
@@ -175,7 +169,18 @@ export class CMApp {
     light_dev_4.position.set(-5, -5, -5);
     scene.add(light_dev_4);
 
-    const branchCoral = branchCoral2();
+    const branchCoral = coralBranch_createMesh(
+      [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(-0.1, 0.5, 0),
+        new THREE.Vector3(0.1, 1, 0),
+      ],
+      0.1,
+      0.01,
+      0.02,
+      0.8,
+      0.6,
+    );
     scene.add(branchCoral);
   }
 

@@ -18,239 +18,155 @@ function meshWithWireframe(mesh: THREE.Mesh) {
   return group;
 }
 
-export function branchCoral_generateMesh(variant: number) {
-  // #region [sub]
-  const cylinder_createGeom = (
-    radiusStart: number,
-    radiusEnd: number,
-    length: number,
-    radialSegment,
-    heightSegment,
-  ) => {
-    const geom = new THREE.CylinderGeometry(
-      radiusEnd,
-      radiusStart,
-      length,
-      radialSegment,
-      heightSegment,
-      false,
-    );
+export function coralThorn_createGeom(
+  baseRadius: number,
+  length: number,
+  control_baseRatio: number,
+  control_tipRatio: number,
+) {
+  const profile = new THREE.Path();
+  profile.moveTo(baseRadius, 0);
 
-    geom.translate(0, length / 2, 0);
+  profile.bezierCurveTo(
+    baseRadius,
+    length * control_baseRatio,
+    baseRadius * control_tipRatio,
+    length,
+    0,
+    length,
+  );
 
-    return geom;
-  };
+  const points = profile.getPoints(64);
+  const thorn_geom = new THREE.LatheGeometry(points, 48);
 
-  const createCircleTextureMap = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext("2d")!;
-
-    ctx.fillStyle = "#837f7f";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = "#ca1c1c";
-    ctx.beginPath();
-    ctx.arc(64, 64, 40, 0, TAU);
-    ctx.fill();
-
-    return new THREE.CanvasTexture(canvas);
-  };
-
-  const createCircleTextureBump = () => {
-    const WIDTH = 128;
-    const HEIGHT = 128;
-    const CIRCLE_RADIUS = 40;
-
-    const bump = new Uint8Array(WIDTH * HEIGHT);
-    for (let y = 0; y < HEIGHT; y++) {
-      for (let x = 0; x < WIDTH; x++) {
-        const dx = x - WIDTH / 2;
-        const dy = y - HEIGHT / 2;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        bump[y * WIDTH + x] = Math.round(
-          (1 - THREE.MathUtils.clamp(dist / CIRCLE_RADIUS, 0, 1)) * 5,
-        );
-      }
-    }
-
-    const texture = new THREE.DataTexture(
-      bump,
-      WIDTH,
-      HEIGHT,
-      THREE.RedFormat,
-      THREE.UnsignedByteType,
-    );
-    texture.needsUpdate = true;
-    return texture;
-  };
-  // #endregion [sub]
-
-  const seed = XXH.h64(0xabcd)
-    .update("branchcoral")
-    .update(new Int32Array([variant]).buffer)
-    .digest()
-    .toNumber();
-
-  const noise = new FastNoiseLite(seed);
-  noise.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-
-  const root_geom = cylinder_createGeom(0.1, 0.1, 1, 10, 1);
-
-  const material_map = createCircleTextureMap();
-  material_map.wrapS = THREE.RepeatWrapping;
-  material_map.wrapT = THREE.RepeatWrapping;
-  material_map.repeat.set(30, 30);
-
-  const material_bump = createCircleTextureBump();
-  material_bump.wrapS = THREE.RepeatWrapping;
-  material_bump.wrapT = THREE.RepeatWrapping;
-  material_bump.repeat.set(30, 30);
-
-  const material = new THREE.MeshStandardMaterial({
-    color: "#695f5f",
-    // map: material_map,
-    // displacementMap: material_bump,
-  });
-  const mesh = new THREE.Mesh(root_geom, material);
-
-  // return meshWithWireframe(mesh);
-
-  return mesh;
+  return thorn_geom;
 }
 
-export function branchCoral2() {
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 1, 0),
-  ]);
+// Lookup table for the thorn profile: height (0..1) at a normalized distance r (0..1)
+// from the thorn center. Uses the same Bézier as coralThorn_createGeom, with
+// radius 1 and length 1.
+function thornHeightLUT(
+  control_baseRatio: number,
+  control_tipRatio: number,
+  samples = 64,
+) {
+  const profile = new THREE.Path();
+  profile.moveTo(1, 0);
+  profile.bezierCurveTo(1, control_baseRatio, control_tipRatio, 1, 0, 1);
+  const pts = profile.getPoints(samples); // r goes 1 -> 0 while y goes 0 -> 1
 
-  const TUBE_SEG = 64,
-    TUBE_R = 0.1,
-    RADIAL = 10,
-    CLOSED = false;
-  const tubeGeom = new THREE.TubeGeometry(
+  return (r: number) => {
+    if (r >= 1) return 0;
+    if (r <= 0) return 1;
+    for (let n = 0; n < pts.length - 1; n++) {
+      const a = pts[n],
+        b = pts[n + 1]; // a.x >= r >= b.x
+      if (r <= a.x && r >= b.x) {
+        const t = (a.x - r) / (a.x - b.x || 1);
+        return a.y + (b.y - a.y) * t;
+      }
+    }
+    return 0;
+  };
+}
+
+export function coralBranch_createMesh(
+  listBasisPoint: Array<THREE.Vector3>,
+  radius: number,
+  thornRadius: number,
+  thornLength: number,
+  control_baseRatio: number,
+  control_tipRatio: number,
+) {
+  const radialSegmentCnt = 160;
+  const tubeSegmentCnt = 160;
+  const tubeClosed = false;
+
+  const curve = new THREE.CatmullRomCurve3(listBasisPoint);
+  const tube_geom = new THREE.TubeGeometry(
     curve,
-    TUBE_SEG,
-    TUBE_R,
-    RADIAL,
-    CLOSED,
-  );
-  const tube = new THREE.Mesh(
-    tubeGeom,
-    new THREE.MeshStandardMaterial({ color: 0x8888ff }),
+    tubeSegmentCnt,
+    radius,
+    radialSegmentCnt,
+    tubeClosed,
   );
 
-  // --- Half-sphere, dome points toward +Y ---
-  const r = 0.01;
-  const hemiGeom = new THREE.SphereGeometry(
-    r,
-    12,
-    6,
-    0,
-    Math.PI * 2,
-    0,
-    Math.PI / 2,
+  const heightAt = thornHeightLUT(control_baseRatio, control_tipRatio);
+
+  const tubeSegLen = curve.getLength() / tubeSegmentCnt;
+  const radialSegLen = 2 * radius * Math.sin(TAU / radialSegmentCnt);
+
+  const thorn_tubeSegCnt = Math.ceil(thornLength / tubeSegLen);
+  const thorn_radialSegCnt = Math.ceil(thornRadius / radialSegLen);
+
+  const thorn_alongTubeCnt = Math.floor(tubeSegmentCnt / thorn_tubeSegCnt);
+  const thorn_alongRadialCnt = Math.floor(
+    radialSegmentCnt / thorn_radialSegCnt,
   );
 
-  // --- Even spacing (world units) ---
-  const SPACING = 0.03;
-  const length = curve.getLength();
-  const ROWS = Math.max(1, Math.round(length / SPACING)); // along the tube
-  const COLS = Math.max(3, Math.round((2 * Math.PI * TUBE_R) / SPACING)); // around the tube
+  const pos = tube_geom.attributes.position as THREE.BufferAttribute;
+  const nor = tube_geom.attributes.normal as THREE.BufferAttribute;
 
-  // Same vertex formula TubeGeometry uses internally
-  const P = new THREE.Vector3();
+  for (let i = 0; i <= tubeSegmentCnt; ++i) {
+    const ci = Math.floor(i / thorn_tubeSegCnt);
+    if (ci >= thorn_alongTubeCnt) {
+      continue;
+    }
 
-  function tubeVertex(i: number, j: number, target: THREE.Vector3) {
-    const v = (j / RADIAL) * Math.PI * 2;
-    const sin = Math.sin(v),
-      cos = -Math.cos(v);
-    const N = tubeGeom.normals[i],
-      B = tubeGeom.binormals[i];
-    curve.getPointAt(i / TUBE_SEG, P);
-    return target.set(
-      P.x + TUBE_R * (cos * N.x + sin * B.x),
-      P.y + TUBE_R * (cos * N.y + sin * B.y),
-      P.z + TUBE_R * (cos * N.z + sin * B.z),
-    );
-  }
+    for (let j = 0; j <= radialSegmentCnt; ++j) {
+      const cj = Math.floor(j / thorn_alongRadialCnt);
+      if (cj >= thorn_alongRadialCnt) {
+        continue;
+      }
 
-  // Point + outward normal at continuous surface coords (s along, t around)
-  const v00 = new THREE.Vector3(),
-    v10 = new THREE.Vector3(),
-    v01 = new THREE.Vector3(),
-    v11 = new THREE.Vector3();
-  const e1 = new THREE.Vector3(),
-    e2 = new THREE.Vector3(),
-    tmp = new THREE.Vector3();
+      // Distance from the cell center, in world units
+      const di =
+        (i - (ci * thorn_tubeSegCnt + thorn_tubeSegCnt / 2)) / thorn_tubeSegCnt;
+      const dj =
+        (j - (cj * thorn_radialSegCnt + thorn_radialSegCnt / 2)) /
+        thorn_radialSegCnt;
+      const d = Math.hypot(di, dj);
+      if (d >= 1) {
+        continue;
+      }
 
-  function surfacePoint(
-    s: number,
-    t: number,
-    pos: THREE.Vector3,
-    nrm: THREE.Vector3,
-  ) {
-    const fi = s * TUBE_SEG,
-      fj = t * RADIAL;
-    const i = Math.min(Math.floor(fi), TUBE_SEG - 1),
-      a = fi - i;
-    const j = Math.floor(fj) % RADIAL,
-      b = fj - Math.floor(fj);
-    tubeVertex(i, j, v00);
-    tubeVertex(i + 1, j, v10);
-    tubeVertex(i, j + 1, v01);
-    tubeVertex(i + 1, j + 1, v11);
-
-    // Bilinear interpolation, so the point lies exactly on the flat quad
-    pos
-      .copy(v00)
-      .multiplyScalar((1 - a) * (1 - b))
-      .addScaledVector(v10, a * (1 - b))
-      .addScaledVector(v01, (1 - a) * b)
-      .addScaledVector(v11, a * b);
-
-    // Quad normal, flipped to point away from the curve if needed
-    e1.subVectors(v10, v00);
-    e2.subVectors(v01, v00);
-    nrm.crossVectors(e1, e2).normalize();
-    curve.getPointAt(s, P);
-    if (nrm.dot(tmp.subVectors(pos, P)) < 0) nrm.negate();
-  }
-
-  // --- Instancing ---
-  const count = (ROWS + (CLOSED ? 0 : 1)) * COLS;
-  const bumps = new THREE.InstancedMesh(
-    hemiGeom,
-    new THREE.MeshStandardMaterial({ color: 0x8888ff }),
-    count,
-  );
-
-  const up = new THREE.Vector3(0, 1, 0);
-  const pos = new THREE.Vector3(),
-    nrm = new THREE.Vector3();
-  const q = new THREE.Quaternion(),
-    one = new THREE.Vector3(1, 1, 1),
-    m = new THREE.Matrix4();
-
-  let k = 0;
-  const rowCount = CLOSED ? ROWS : ROWS + 1;
-  for (let row = 0; row < rowCount; row++) {
-    const s = row / ROWS; // arc-length parameter, 0..1
-    for (let col = 0; col < COLS; col++) {
-      const t = (col + 0.5) / COLS; // around the tube, 0..1
-      surfacePoint(s, t, pos, nrm);
-      q.setFromUnitVectors(up, nrm);
-      m.compose(pos, q, one);
-      bumps.setMatrixAt(k++, m);
+      const h = thornLength * heightAt(d);
+      const idx = i * (radialSegmentCnt + 1) + j;
+      pos.setXYZ(
+        idx,
+        pos.getX(idx) + nor.getX(idx) * h,
+        pos.getY(idx) + nor.getY(idx) * h,
+        pos.getZ(idx) + nor.getZ(idx) * h,
+      );
     }
   }
-  bumps.count = k;
-  bumps.instanceMatrix.needsUpdate = true;
-  tube.add(bumps);
+  pos.needsUpdate = true;
 
-  return tube;
+  // Recompute normals for lighting, then average them across the seam
+  // so the duplicated column doesn't leave a visible line
+  tube_geom.computeVertexNormals();
+  const n = tube_geom.attributes.normal as THREE.BufferAttribute;
+  const tmp = new THREE.Vector3(),
+    tmp2 = new THREE.Vector3();
+  for (let i = 0; i <= tubeSegmentCnt; i++) {
+    const a = i * (radialSegmentCnt + 1),
+      b = a + radialSegmentCnt;
+    tmp
+      .fromBufferAttribute(n, a)
+      .add(tmp2.fromBufferAttribute(n, b))
+      .normalize();
+    n.setXYZ(a, tmp.x, tmp.y, tmp.z);
+    n.setXYZ(b, tmp.x, tmp.y, tmp.z);
+  }
+  n.needsUpdate = true;
+  tube_geom.computeBoundingSphere();
+
+  const tube_mesh = new THREE.Mesh(
+    tube_geom,
+    new THREE.MeshStandardMaterial({ color: "#695f5f" }),
+  );
+
+  return tube_mesh;
 }
 
 // **************************
