@@ -12,6 +12,8 @@ import {
   createMesh_simple,
   branchCoral_createGeometry,
   seeded,
+  branchCoral_generateMesh,
+  branchCoral2,
 } from "./graphics";
 
 export class CMApp {
@@ -157,27 +159,24 @@ export class CMApp {
 
     scene.add(new THREE.AxesHelper(100));
 
-    const light_dev = createLight_simple();
-    scene.add(light_dev);
+    const light_dev_1 = createLight_simple();
+    light_dev_1.position.set(5, 5, 5);
+    scene.add(light_dev_1);
 
-    const rock_geom = rock_createGeometry(worldSeed);
-    const rock_mesh = createMesh_simple(rock_geom, "#524343", {
-      showWireframe: true,
-    });
-    scene.add(rock_mesh);
+    const light_dev_2 = createLight_simple();
+    light_dev_2.position.set(-5, 5, -5);
+    scene.add(light_dev_2);
 
-    const branchCoral_geom = branchCoral_createGeometry(
-      2,
-      0,
-      2,
-      1,
-      seeded(worldSeed),
-      4,
-    );
-    const branchCoral_mesh = createMesh_simple(branchCoral_geom, "#47ffa0", {
-      // showWireframe: true,
-    });
-    scene.add(branchCoral_mesh);
+    const light_dev_3 = createLight_simple();
+    light_dev_3.position.set(5, -5, 5);
+    scene.add(light_dev_3);
+
+    const light_dev_4 = createLight_simple();
+    light_dev_4.position.set(-5, -5, -5);
+    scene.add(light_dev_4);
+
+    const branchCoral = branchCoral2();
+    scene.add(branchCoral);
   }
 
   showBooting() {
@@ -265,7 +264,7 @@ export class CMApp {
   // @region [dev_util]
   dev_resetCamPosition() {
     const { camera } = this;
-    camera.position.set(10, 10, 10);
+    camera.position.set(2, 2, 2);
     camera.lookAt(0, 0, 0);
   }
   // @endregion [dev_util]

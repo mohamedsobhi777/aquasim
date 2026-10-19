@@ -1,9 +1,259 @@
+import XXH from "xxhashjs";
+import FastNoiseLite from "./lib-external/fastnoise-lite";
 import * as THREE from "three";
 import _ from "lodash";
 
 const TAU = Math.PI * 2;
 const SINGLE_GEOMETRY_MAX_VERTEX = 65536;
 const UP = new THREE.Vector3(0, 1, 0);
+
+function meshWithWireframe(mesh: THREE.Mesh) {
+  const group = new THREE.Group();
+  const wireframeMaterial = new THREE.MeshBasicMaterial({
+    wireframe: true,
+  });
+  const wireframeMesh = new THREE.Mesh(mesh.geometry, wireframeMaterial);
+  group.add(mesh);
+  group.add(wireframeMesh);
+  return group;
+}
+
+export function branchCoral_generateMesh(variant: number) {
+  // #region [sub]
+  const cylinder_createGeom = (
+    radiusStart: number,
+    radiusEnd: number,
+    length: number,
+    radialSegment,
+    heightSegment,
+  ) => {
+    const geom = new THREE.CylinderGeometry(
+      radiusEnd,
+      radiusStart,
+      length,
+      radialSegment,
+      heightSegment,
+      false,
+    );
+
+    geom.translate(0, length / 2, 0);
+
+    return geom;
+  };
+
+  const createCircleTextureMap = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d")!;
+
+    ctx.fillStyle = "#837f7f";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#ca1c1c";
+    ctx.beginPath();
+    ctx.arc(64, 64, 40, 0, TAU);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(canvas);
+  };
+
+  const createCircleTextureBump = () => {
+    const WIDTH = 128;
+    const HEIGHT = 128;
+    const CIRCLE_RADIUS = 40;
+
+    const bump = new Uint8Array(WIDTH * HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const dx = x - WIDTH / 2;
+        const dy = y - HEIGHT / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        bump[y * WIDTH + x] = Math.round(
+          (1 - THREE.MathUtils.clamp(dist / CIRCLE_RADIUS, 0, 1)) * 5,
+        );
+      }
+    }
+
+    const texture = new THREE.DataTexture(
+      bump,
+      WIDTH,
+      HEIGHT,
+      THREE.RedFormat,
+      THREE.UnsignedByteType,
+    );
+    texture.needsUpdate = true;
+    return texture;
+  };
+  // #endregion [sub]
+
+  const seed = XXH.h64(0xabcd)
+    .update("branchcoral")
+    .update(new Int32Array([variant]).buffer)
+    .digest()
+    .toNumber();
+
+  const noise = new FastNoiseLite(seed);
+  noise.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
+
+  const root_geom = cylinder_createGeom(0.1, 0.1, 1, 10, 1);
+
+  const material_map = createCircleTextureMap();
+  material_map.wrapS = THREE.RepeatWrapping;
+  material_map.wrapT = THREE.RepeatWrapping;
+  material_map.repeat.set(30, 30);
+
+  const material_bump = createCircleTextureBump();
+  material_bump.wrapS = THREE.RepeatWrapping;
+  material_bump.wrapT = THREE.RepeatWrapping;
+  material_bump.repeat.set(30, 30);
+
+  const material = new THREE.MeshStandardMaterial({
+    color: "#695f5f",
+    // map: material_map,
+    // displacementMap: material_bump,
+  });
+  const mesh = new THREE.Mesh(root_geom, material);
+
+  // return meshWithWireframe(mesh);
+
+  return mesh;
+}
+
+export function branchCoral2() {
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 1, 0),
+  ]);
+
+  const TUBE_SEG = 64,
+    TUBE_R = 0.1,
+    RADIAL = 10,
+    CLOSED = false;
+  const tubeGeom = new THREE.TubeGeometry(
+    curve,
+    TUBE_SEG,
+    TUBE_R,
+    RADIAL,
+    CLOSED,
+  );
+  const tube = new THREE.Mesh(
+    tubeGeom,
+    new THREE.MeshStandardMaterial({ color: 0x8888ff }),
+  );
+
+  // --- Half-sphere, dome points toward +Y ---
+  const r = 0.01;
+  const hemiGeom = new THREE.SphereGeometry(
+    r,
+    12,
+    6,
+    0,
+    Math.PI * 2,
+    0,
+    Math.PI / 2,
+  );
+
+  // --- Even spacing (world units) ---
+  const SPACING = 0.03;
+  const length = curve.getLength();
+  const ROWS = Math.max(1, Math.round(length / SPACING)); // along the tube
+  const COLS = Math.max(3, Math.round((2 * Math.PI * TUBE_R) / SPACING)); // around the tube
+
+  // Same vertex formula TubeGeometry uses internally
+  const P = new THREE.Vector3();
+
+  function tubeVertex(i: number, j: number, target: THREE.Vector3) {
+    const v = (j / RADIAL) * Math.PI * 2;
+    const sin = Math.sin(v),
+      cos = -Math.cos(v);
+    const N = tubeGeom.normals[i],
+      B = tubeGeom.binormals[i];
+    curve.getPointAt(i / TUBE_SEG, P);
+    return target.set(
+      P.x + TUBE_R * (cos * N.x + sin * B.x),
+      P.y + TUBE_R * (cos * N.y + sin * B.y),
+      P.z + TUBE_R * (cos * N.z + sin * B.z),
+    );
+  }
+
+  // Point + outward normal at continuous surface coords (s along, t around)
+  const v00 = new THREE.Vector3(),
+    v10 = new THREE.Vector3(),
+    v01 = new THREE.Vector3(),
+    v11 = new THREE.Vector3();
+  const e1 = new THREE.Vector3(),
+    e2 = new THREE.Vector3(),
+    tmp = new THREE.Vector3();
+
+  function surfacePoint(
+    s: number,
+    t: number,
+    pos: THREE.Vector3,
+    nrm: THREE.Vector3,
+  ) {
+    const fi = s * TUBE_SEG,
+      fj = t * RADIAL;
+    const i = Math.min(Math.floor(fi), TUBE_SEG - 1),
+      a = fi - i;
+    const j = Math.floor(fj) % RADIAL,
+      b = fj - Math.floor(fj);
+    tubeVertex(i, j, v00);
+    tubeVertex(i + 1, j, v10);
+    tubeVertex(i, j + 1, v01);
+    tubeVertex(i + 1, j + 1, v11);
+
+    // Bilinear interpolation, so the point lies exactly on the flat quad
+    pos
+      .copy(v00)
+      .multiplyScalar((1 - a) * (1 - b))
+      .addScaledVector(v10, a * (1 - b))
+      .addScaledVector(v01, (1 - a) * b)
+      .addScaledVector(v11, a * b);
+
+    // Quad normal, flipped to point away from the curve if needed
+    e1.subVectors(v10, v00);
+    e2.subVectors(v01, v00);
+    nrm.crossVectors(e1, e2).normalize();
+    curve.getPointAt(s, P);
+    if (nrm.dot(tmp.subVectors(pos, P)) < 0) nrm.negate();
+  }
+
+  // --- Instancing ---
+  const count = (ROWS + (CLOSED ? 0 : 1)) * COLS;
+  const bumps = new THREE.InstancedMesh(
+    hemiGeom,
+    new THREE.MeshStandardMaterial({ color: 0x8888ff }),
+    count,
+  );
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const pos = new THREE.Vector3(),
+    nrm = new THREE.Vector3();
+  const q = new THREE.Quaternion(),
+    one = new THREE.Vector3(1, 1, 1),
+    m = new THREE.Matrix4();
+
+  let k = 0;
+  const rowCount = CLOSED ? ROWS : ROWS + 1;
+  for (let row = 0; row < rowCount; row++) {
+    const s = row / ROWS; // arc-length parameter, 0..1
+    for (let col = 0; col < COLS; col++) {
+      const t = (col + 0.5) / COLS; // around the tube, 0..1
+      surfacePoint(s, t, pos, nrm);
+      q.setFromUnitVectors(up, nrm);
+      m.compose(pos, q, one);
+      bumps.setMatrixAt(k++, m);
+    }
+  }
+  bumps.count = k;
+  bumps.instanceMatrix.needsUpdate = true;
+  tube.add(bumps);
+
+  return tube;
+}
+
+// **************************
 
 export type GetRandomFunc = () => number;
 
@@ -50,7 +300,7 @@ export function rock_createGeometry(seed: number) {
  * NOTE: The zero point of the cylinder is at the midpoint between points a and b.
  * @returns {THREE.CylinderGeometry}
  */
-function cylinder_createGeometry(
+function cylinder_createGeometryOld(
   a: THREE.Vector3,
   b: THREE.Vector3,
   radiusA: number,
@@ -143,7 +393,7 @@ export function branchCoral_createGeometry(
 
     if (branchLevel <= 0) {
       const tip = end.clone().addScaledVector(dir, length * 0.12);
-      const branch = cylinder_createGeometry(
+      const branch = cylinder_createGeometryOld(
         end,
         tip,
         radius * 0.54,
@@ -163,13 +413,19 @@ export function branchCoral_createGeometry(
         (rng() - 0.5) * 1.5,
       );
       nd.addScaledVector(dir, 0.5).normalize();
-      grow(end, nd, length * (0.63 + rng() * 0.1), radius * 0.69, branchLevel - 1);
+      grow(
+        end,
+        nd,
+        length * (0.63 + rng() * 0.1),
+        radius * 0.69,
+        branchLevel - 1,
+      );
     }
   };
 
   const crown = origin.clone().add(new THREE.Vector3(0, size * 0.12, 0));
 
-  const rootBranch = cylinder_createGeometry(
+  const rootBranch = cylinder_createGeometryOld(
     origin,
     crown,
     size * 0.07,
@@ -263,8 +519,7 @@ function mergeGeometry(
 }
 
 export function createLight_simple(): THREE.Light {
-  const light = new THREE.PointLight("#ffffff", 100);
-  light.position.set(5, 5, 5);
+  const light = new THREE.PointLight("#ffffff", 150);
   return light;
 }
 
