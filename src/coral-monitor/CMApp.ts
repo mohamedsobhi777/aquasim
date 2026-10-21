@@ -6,8 +6,6 @@ import {
 } from "./utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
-import { createLight_simple } from "./graphics1";
-import { coralBranch_createMesh } from "./graphics";
 
 export class CMApp {
   private readonly TAG = "CMApp";
@@ -148,6 +146,13 @@ export class CMApp {
   init_scene() {
     const { scene } = this;
 
+    // #region [sub]
+    const createLight_simple = (): THREE.Light => {
+      const light = new THREE.PointLight("#ffffff", 150);
+      return light;
+    };
+    // #endregion [sub]
+
     const worldSeed = 5838;
 
     scene.add(new THREE.AxesHelper(100));
@@ -167,22 +172,6 @@ export class CMApp {
     const light_dev_4 = createLight_simple();
     light_dev_4.position.set(-5, -5, -5);
     scene.add(light_dev_4);
-
-    const branchCoral = coralBranch_createMesh({
-      listBasisPoint: [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(-0.1, 0.5, 0),
-        new THREE.Vector3(0.1, 1, 0),
-      ],
-      radius: 0.05,
-      capHeight: 0.1,
-      thorn_radius: 0.005,
-      thorn_spacing: 0.002,
-      thorn_length: 0.01,
-      thorn_control_baseRatio: 0.8,
-      thorn_control_tipRatio: 0.6,
-    });
-    scene.add(branchCoral);
   }
 
   showBooting() {
