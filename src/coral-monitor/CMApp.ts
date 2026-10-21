@@ -6,7 +6,8 @@ import {
 } from "./utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
-import { createLight_simple, coralBranch_createMesh } from "./graphics";
+import { createLight_simple } from "./graphics1";
+import { coralBranch_createMesh } from "./graphics";
 
 export class CMApp {
   private readonly TAG = "CMApp";
