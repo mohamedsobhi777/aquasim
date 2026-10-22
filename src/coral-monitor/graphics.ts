@@ -156,19 +156,32 @@ export function randomPointOnDisk(params: {
  * The mesh zero point is at the base of the coral where it is rooted
  */
 export function branchingCoral_generateMesh(params: {
-  rootNormalVec: THREE.Vector3;
-  rootCeilingHeight: number;
+  root_normalVec: THREE.Vector3;
+  root_ceilingHeight: number;
   seedHash: string;
 }) {
-  let { rootNormalVec, rootCeilingHeight, seedHash } = params;
-
-  rootNormalVec = rootNormalVec.normalize();
-
-  const rng = seedrandom(seedHash);
-
   // @region [sub]
-  const rootBranch_generateGeom = () => {
-    const rootCeilingRadius = 0.01;
+  const branchTube_generateGeom = (params: {
+    parentBranch_forwardVec: THREE.Vector3;
+    ceil_pt: THREE.Vector3;
+    randFn: RandomFunc;
+  }) => {
+
+  };
+
+  const rootBranch_generateGeom = (params: {
+    normalVec: THREE.Vector3;
+    ceilingHeight: number;
+    randFn: RandomFunc;
+  }) => {
+    const { normalVec, ceilingHeight, randFn } = params;
+    const ceilingRadius = 0.01;
+
+    const ceil_pt = randomPointOnDisk({
+      H: normalVec.clone().normalize().multiplyScalar(ceilingHeight),
+      d: ceilingRadius,
+      randFn: randFn,
+    });
   };
 
   const mainBranch_generateGeom = (
@@ -178,4 +191,8 @@ export function branchingCoral_generateMesh(params: {
     return null;
   };
   // @endregion [sub]
+
+  const { root_normalVec, root_ceilingHeight, seedHash } = params;
+
+  const rng = seedrandom(seedHash);
 }
