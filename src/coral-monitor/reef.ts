@@ -42,7 +42,9 @@ export function branchingCoral_generate(params: {
     tube_geom: THREE.TubeGeometry;
     tube_curve: THREE.Curve<THREE.Vector3>;
   }) => {
-    const CAP_CURVE_POINT_CNT = 8;
+    const capCurve_divisionCnt = 8;
+    const capCurve_baseCpFactor = 0.5;
+    const capCurve_tipCpFactor = 0.1;
 
     const {
       capHeight,
@@ -57,15 +59,15 @@ export function branchingCoral_generate(params: {
     cap_curvePath.moveTo(tube_radius, 0);
     cap_curvePath.bezierCurveTo(
       tube_radius,
-      capHeight * 0.55,
-      tube_radius * 0.55,
+      capHeight * capCurve_baseCpFactor,
+      tube_radius * capCurve_tipCpFactor,
       capHeight,
       0,
       capHeight,
     );
 
     const tubeCap_geom = new THREE.LatheGeometry(
-      cap_curvePath.getPoints(CAP_CURVE_POINT_CNT),
+      cap_curvePath.getPoints(capCurve_divisionCnt),
       tube_radialSegCnt,
     );
 
@@ -97,7 +99,7 @@ export function branchingCoral_generate(params: {
 
     const tube_tubeSegCnt = 20;
     const tube_radialSegCnt = 8;
-    const capHeight = 0.08;
+    const capHeight = 0.1;
 
     const { parentBranch_forwardVec, radius, ceil_pt, randFn } = params;
 
