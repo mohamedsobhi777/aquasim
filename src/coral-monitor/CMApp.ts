@@ -6,6 +6,10 @@ import {
 } from "./utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
+import {
+  branchingCoral_generate,
+  setupGenericLightingEnvironment,
+} from "./graphics";
 
 export class CMApp {
   private readonly TAG = "CMApp";
@@ -146,32 +150,18 @@ export class CMApp {
   init_scene() {
     const { scene } = this;
 
-    // #region [sub]
-    const createLight_simple = (): THREE.Light => {
-      const light = new THREE.PointLight("#ffffff", 150);
-      return light;
-    };
-    // #endregion [sub]
-
     const worldSeed = 5838;
 
     scene.add(new THREE.AxesHelper(100));
 
-    const light_dev_1 = createLight_simple();
-    light_dev_1.position.set(5, 5, 5);
-    scene.add(light_dev_1);
+    setupGenericLightingEnvironment(scene);
 
-    const light_dev_2 = createLight_simple();
-    light_dev_2.position.set(-5, 5, -5);
-    scene.add(light_dev_2);
-
-    const light_dev_3 = createLight_simple();
-    light_dev_3.position.set(5, -5, 5);
-    scene.add(light_dev_3);
-
-    const light_dev_4 = createLight_simple();
-    light_dev_4.position.set(-5, -5, -5);
-    scene.add(light_dev_4);
+    const coral = branchingCoral_generate({
+      root_forwardVec: new THREE.Vector3(1, 0, 0),
+      root_ceilingHeight: 5,
+      seedHash: "",
+    });
+    scene.add(coral);
   }
 
   showBooting() {
