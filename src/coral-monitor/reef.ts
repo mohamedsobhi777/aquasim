@@ -25,6 +25,7 @@ interface CoralBranchTube {
 export function branchingCoral_generate(params: {
   root_forwardVec: THREE.Vector3;
   root_ceilingHeight: number;
+  material: THREE.Material,
   seedHash: string;
 }) {
   const thorn_radius = 0.01;
@@ -71,10 +72,9 @@ export function branchingCoral_generate(params: {
       tube_radialSegCnt,
     );
 
-    const idx = tube_tubeSegCnt;
-    const T = tube_geom.tangents[idx].clone();
-    const N = tube_geom.normals[idx].clone();
-    const B = tube_geom.binormals[idx].clone();
+    const T = tube_geom.tangents[tube_tubeSegCnt].clone();
+    const N = tube_geom.normals[tube_tubeSegCnt].clone();
+    const B = tube_geom.binormals[tube_tubeSegCnt].clone();
     const P = tube_curve.getPointAt(1);
 
     const X = B.clone().negate();
@@ -211,10 +211,8 @@ export function branchingCoral_generate(params: {
   };
   // @endregion [sub]
 
-  const { seedHash, root_forwardVec, root_ceilingHeight } = params;
+  const { seedHash, root_forwardVec, material, root_ceilingHeight } = params;
   const randFn = seedrandom(seedHash);
-
-  const material = new THREE.MeshStandardMaterial({ color: "#526362" });
 
   const rootBranchTube_radius = 0.1;
   const rootBranchTube = rootBranchTube_generate({
