@@ -158,7 +158,7 @@ export class CMApp {
 
     const coral = branchingCoral_generate({
       root_forwardVec: new THREE.Vector3(1, 0, 0),
-      root_ceilingHeight: 5,
+      root_ceilingHeight: 1.5,
       seedHash: "",
     });
     scene.add(coral);

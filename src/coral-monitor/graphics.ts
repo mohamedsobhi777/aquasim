@@ -92,11 +92,11 @@ export function branchingCoral_generate(params: {
     const { parentBranch_forwardVec, radius, ceil_pt, randFn } = params;
 
     const ground_pt = ceil_pt.clone().projectOnVector(parentBranch_forwardVec);
-    const horiz_dir = ground_pt.clone().sub(ceil_pt).normalize();
-    const vert_dir = ceil_pt.clone().sub(ground_pt).normalize();
+    const horiz_vec = ground_pt.clone().sub(ZERO_VEC);
+    const vert_vec = ceil_pt.clone().sub(ground_pt);
 
     const originCpt = ZERO_VEC.clone().addScaledVector(
-      vert_dir,
+      vert_vec,
       originCpt_vertSectionConstraints_ratio[0] +
         (originCpt_vertSectionConstraints_ratio[1] -
           originCpt_vertSectionConstraints_ratio[0]) *
@@ -105,14 +105,14 @@ export function branchingCoral_generate(params: {
 
     const ceilCpt = ZERO_VEC.clone()
       .addScaledVector(
-        horiz_dir,
+        horiz_vec,
         ceilCpt_horizSectionConstraints_ratio[0] +
           (ceilCpt_horizSectionConstraints_ratio[1] -
             ceilCpt_horizSectionConstraints_ratio[0]) *
             randFn(),
       )
       .addScaledVector(
-        vert_dir,
+        vert_vec,
         ceilCpt_vertSectionConstraints_ratio[0] +
           (ceilCpt_vertSectionConstraints_ratio[1] -
             ceilCpt_vertSectionConstraints_ratio[0]) *
@@ -121,9 +121,9 @@ export function branchingCoral_generate(params: {
 
     const tube_curve = new THREE.CubicBezierCurve3(
       ZERO_VEC,
-      originCpt.clone().addScaledVector(horiz_dir, radius),
-      ceilCpt.clone().addScaledVector(horiz_dir, -radius),
+      originCpt,
       ceilCpt,
+      ceil_pt,
     );
 
     const tube_geom = new THREE.TubeGeometry(
@@ -166,13 +166,19 @@ export function branchingCoral_generate(params: {
     radius: number;
     randFn: RandomFunc;
   }) => {
-    const ceil_gapConstraint = 0.01;
+    const ceil_gapConstraints_ratio = [0.4, 0.8];
 
     const { forward_vec, ceilingHeight, radius, randFn } = params;
 
     const forward_dir = forward_vec.clone().normalize();
     const N = UP_DIR.clone().cross(forward_vec).normalize();
     const localUp_dir = forward_vec.clone().cross(N).normalize();
+
+    const ceil_gapConstraint =
+      ceilingHeight *
+      (ceil_gapConstraints_ratio[0] +
+        (ceil_gapConstraints_ratio[1] - ceil_gapConstraints_ratio[0]) *
+          randFn());
 
     const ceil_pt = ZERO_VEC.clone()
       .addScaledVector(
