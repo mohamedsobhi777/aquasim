@@ -20,8 +20,11 @@ export function branchingCoral_generate(params: {
 }) {
   // @region [sub]
   interface BranchTube {
+    /** Combination of tube and cap */
     geom: THREE.BufferGeometry;
     curve: THREE.Curve<THREE.Vector3>;
+    tube_geom: THREE.TubeGeometry;
+    tube_radialSegCnt: number;
   }
 
   const branchTube_cap_createGeom = (params: {
@@ -119,6 +122,13 @@ export function branchingCoral_generate(params: {
             randFn(),
       );
 
+    // Range: -90 <= x < 90 (in degrees)
+    const rand_rotation = -Math.PI * 0.5 + Math.PI * randFn();
+
+    originCpt.applyAxisAngle(UP_DIR, rand_rotation);
+    ceilCpt.applyAxisAngle(UP_DIR, rand_rotation);
+    ceil_pt.applyAxisAngle(UP_DIR, rand_rotation);
+
     const tube_curve = new THREE.CubicBezierCurve3(
       ZERO_VEC,
       originCpt,
@@ -148,15 +158,11 @@ export function branchingCoral_generate(params: {
       tubeCap_geom,
     ]);
 
-    // Range: -90 <= x < 90 (in degrees)
-    const rand_rotation = -Math.PI * 0.5 + Math.PI * randFn();
-    tubeFinal_geom.applyMatrix4(
-      new THREE.Matrix4().makeRotationAxis(UP_DIR, rand_rotation),
-    );
-
     return {
       geom: tubeFinal_geom,
       curve: tube_curve,
+      tube_geom: tube_geom,
+      tube_radialSegCnt: tube_radialSegCnt,
     };
   };
 
@@ -166,7 +172,7 @@ export function branchingCoral_generate(params: {
     radius: number;
     randFn: RandomFunc;
   }) => {
-    const ceil_gapConstraints_ratio = [0.4, 0.8];
+    const ceil_gapConstraints_ratio = [0.4, 1.5];
 
     const { forward_vec, ceilingHeight, radius, randFn } = params;
 
@@ -201,14 +207,42 @@ export function branchingCoral_generate(params: {
 
   const material = new THREE.MeshStandardMaterial({ color: "#526362" });
 
+  const rootBranchTube_radius = 0.1;
   const rootBranchTube = rootBranchTube_generate({
     forward_vec: root_forwardVec,
     ceilingHeight: root_ceilingHeight,
-    radius: 0.1,
+    radius: rootBranchTube_radius,
     randFn,
   });
 
-  return new THREE.Mesh(rootBranchTube.geom, material);
+  const rootBranchTube_thornCol = branchTube_createThorns({
+    thorn_radius: 0.01,
+    thorn_height: 0.06,
+    thorn_spacing: 0.06,
+    thorn_tiltAngle_rad: 20 * DEG2RAD,
+    tube_curve: rootBranchTube.curve,
+    tube_radius: rootBranchTube_radius,
+    tube_geom: rootBranchTube.tube_geom,
+    tube_radialSegCnt: rootBranchTube.tube_radialSegCnt,
+  });
+
+  const rootBranchTube_thornMesh = new THREE.InstancedMesh(
+    rootBranchTube_thornCol.geom,
+    material,
+    rootBranchTube_thornCol.size,
+  );
+  (rootBranchTube_thornMesh.instanceMatrix.array as Float32Array).set(
+    rootBranchTube_thornCol.listMat4,
+  );
+  rootBranchTube_thornMesh.instanceMatrix.needsUpdate = true;
+
+  const rootBranchTube_mesh = new THREE.Mesh(rootBranchTube.geom, material);
+
+  const mesh_out = new THREE.Group();
+  mesh_out.add(rootBranchTube_mesh);
+  mesh_out.add(rootBranchTube_thornMesh);
+
+  return mesh_out;
 }
 
 export function setupGenericLightingEnvironment(scene: THREE.Scene) {
@@ -224,4 +258,244 @@ export function setupGenericLightingEnvironment(scene: THREE.Scene) {
   const rim = new THREE.DirectionalLight(0xffffff, 1.0);
   rim.position.set(-5, 5, -7);
   scene.add(rim);
+}
+
+interface ThornCollection {
+  // Number of thorn
+  size: number;
+
+  // LatheGeometry of a single thorn
+  geom: THREE.BufferGeometry;
+
+  // Size: N * 16
+  // Transformation matrices for each thorn (4x4 matrix per thorn)
+  listMat4: Float32Array;
+}
+
+function branchTube_createThorns(params: {
+  thorn_radius: number;
+  thorn_height: number;
+  thorn_spacing: number;
+  thorn_tiltAngle_rad: number;
+  tube_curve: THREE.Curve<THREE.Vector3>;
+  tube_radius: number;
+  tube_geom: THREE.TubeGeometry;
+  tube_radialSegCnt: number;
+}): ThornCollection {
+  // #region [sub]
+
+  /**
+   * Build the shared thorn LatheGeometry from `thorn_curvePath`.
+   * The profile is normalized so that:
+   *  - base sits at y = 0, tip at y = height
+   *  - widest point has x = radius
+   * LatheGeometry revolves around +Y => thorn local "up" is +Y.
+   */
+  const thorn_createGeom = (
+    radius: number,
+    height: number,
+  ): THREE.LatheGeometry => {
+    const curve_baseCpFactor = 0.2;
+    const curve_tipCpFactor = 0.8;
+
+    const curve_divisionCnt = 5;
+    const lathe_segCnt = 8;
+
+    // This curve is "normalized": Start at (1, 0) and end at (0, 1)
+    const curve = new THREE.CubicBezierCurve(
+      new THREE.Vector2(1, 0),
+      new THREE.Vector2(1, curve_baseCpFactor),
+      new THREE.Vector2(curve_tipCpFactor, 1),
+      new THREE.Vector2(0, 1),
+    );
+
+    const curve_pts = curve
+      .getPoints(curve_divisionCnt)
+      .map((p) => new THREE.Vector2(p.x * radius, p.y * height));
+
+    return new THREE.LatheGeometry(curve_pts, lathe_segCnt);
+  };
+
+  /**
+   * Number of frame segments stored in tube_geom.
+   * TubeGeometry stores (tubularSegments + 1) frames; validate against tube_tubeSegCnt.
+   */
+  const tube_resolveFrameSegCnt = (
+    geom: THREE.TubeGeometry,
+    expectedSegCnt: number,
+  ): number => {
+    const storedSegCnt = geom.tangents.length - 1;
+    if (storedSegCnt !== expectedSegCnt) {
+      console.warn(
+        `[branchTube_createThorns] tube_tubeSegCnt (${expectedSegCnt}) does not match ` +
+          `tube_geom frames (${storedSegCnt}). Using ${storedSegCnt}.`,
+      );
+      return storedSegCnt;
+    }
+    return expectedSegCnt;
+  };
+
+  /**
+   * Interpolate the tube's frame (T, N, B) at arc-length parameter u in [0, 1].
+   * Uses the exact frames TubeGeometry was built with, so thorns follow the tube's twist.
+   */
+  const tube_sampleFrame = (
+    geom: THREE.TubeGeometry,
+    frameSegCnt: number,
+    u: number,
+    outT: THREE.Vector3,
+    outN: THREE.Vector3,
+    outB: THREE.Vector3,
+  ): void => {
+    const f = THREE.MathUtils.clamp(u, 0, 1) * frameSegCnt;
+    const i0 = Math.min(Math.floor(f), frameSegCnt - 1);
+    const a = f - i0;
+
+    outT.lerpVectors(geom.tangents[i0], geom.tangents[i0 + 1], a).normalize();
+    outN.lerpVectors(geom.normals[i0], geom.normals[i0 + 1], a);
+    outN.addScaledVector(outT, -outN.dot(outT)).normalize(); // re-orthogonalize
+    outB.crossVectors(outT, outN); // same convention as computeFrenetFrames
+  };
+
+  /**
+   * Write one thorn's transform into `out`.
+   *  - n: outward surface normal at the thorn
+   *  - T: tube tangent (toward tip)
+   *  - basePos: center of thorn base on the tube surface (point A)
+   */
+  const thorn_composeMatrix = (
+    basePos: THREE.Vector3,
+    n: THREE.Vector3,
+    T: THREE.Vector3,
+    cosTilt: number,
+    sinTilt: number,
+    sink: number,
+    out: THREE.Matrix4,
+  ): void => {
+    // Displacement vector A -> B on the surface (toward tip).
+    // For an offset surface S(u) = C(u) + r*n(u) with rotation-minimizing frames,
+    // dS/du is parallel to T; project onto the tangent plane for safety.
+    const d = new THREE.Vector3()
+      .copy(T)
+      .addScaledVector(n, -T.dot(n))
+      .normalize();
+
+    // Up vector: angle `tilt` away from d, rotated toward the outward normal.
+    //   tilt = PI/2 -> perpendicular to surface
+    //   tilt -> 0   -> lying flat, pointing toward the tip
+    const up = new THREE.Vector3()
+      .addScaledVector(d, cosTilt)
+      .addScaledVector(n, sinTilt)
+      .normalize();
+
+    // Orthonormal basis with local +Y = up
+    const xAx = new THREE.Vector3().crossVectors(n, d).normalize();
+    const zAx = new THREE.Vector3().crossVectors(xAx, up).normalize();
+
+    const pos = new THREE.Vector3().copy(basePos).addScaledVector(n, -sink);
+
+    out.makeBasis(xAx, up, zAx).setPosition(pos);
+  };
+
+  // #endregion [sub]
+
+  const {
+    thorn_radius,
+    thorn_height,
+    thorn_spacing,
+    thorn_tiltAngle_rad,
+    tube_curve,
+    tube_radius,
+    tube_geom,
+    tube_radialSegCnt,
+  } = params;
+
+  // 0 = base center exactly on surface, 1 = sink to hide gap under tilted base
+  const EMBED_FACTOR = 0.6;
+
+  // ---------------------------------------------------------------------------
+  // 1. Thorn geometry (shared by all thorns)
+  // ---------------------------------------------------------------------------
+  const geom = thorn_createGeom(thorn_radius, thorn_height);
+
+  if (thorn_spacing <= 0) {
+    throw new Error("thorn_spacing must be positive");
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. Layout on the tube surface (hexagonal packing)
+  //    - ring step along the curve: spacing * sqrt(3)/2
+  //    - step around circumference: ~spacing
+  //    - odd rings shifted by half a step
+  //    => every nearest-neighbour distance ≈ thorn_spacing
+  // ---------------------------------------------------------------------------
+  const curveLen = tube_curve.getLength();
+  const ringStep = thorn_spacing * (Math.sqrt(3) / 2);
+  const ringCnt = Math.max(0, Math.floor(curveLen / ringStep));
+
+  const circumference = TAU * tube_radius;
+  const perRing = Math.max(1, Math.floor(circumference / thorn_spacing));
+  const dTheta = TAU / perRing;
+
+  const size = ringCnt * perRing;
+  const listMat4 = new Float32Array(size * 16);
+  if (size === 0) {
+    return { size, geom, listMat4 };
+  }
+
+  // Center the rings so bottom and tip margins are equal
+  const margin = (curveLen - (ringCnt - 1) * ringStep) / 2;
+
+  // ---------------------------------------------------------------------------
+  // 3. Frame + sinking setup
+  // ---------------------------------------------------------------------------
+  const frameSegCnt = tube_geom.tangents.length - 1;
+
+  // Sink amount:
+  //  - tilted base disc lifts one edge by thorn_radius * cos(tilt)
+  //  - faceted tube lies slightly inside the ideal cylinder between vertices
+  const facetInset = tube_radius * (1 - Math.cos(Math.PI / tube_radialSegCnt));
+  const sink =
+    EMBED_FACTOR * thorn_radius * Math.cos(thorn_tiltAngle_rad) + facetInset;
+
+  const cosTilt = Math.cos(thorn_tiltAngle_rad);
+  const sinTilt = Math.sin(thorn_tiltAngle_rad);
+
+  // ---------------------------------------------------------------------------
+  // 4. Build one matrix per thorn
+  // ---------------------------------------------------------------------------
+  const C = new THREE.Vector3(); // point on center curve
+  const T = new THREE.Vector3();
+  const N = new THREE.Vector3();
+  const B = new THREE.Vector3();
+  const n = new THREE.Vector3(); // outward surface normal
+  const A = new THREE.Vector3(); // thorn base center on surface
+  const mat = new THREE.Matrix4();
+
+  let k = 0;
+  for (let i = 0; i < ringCnt; i++) {
+    const u = (margin + i * ringStep) / curveLen; // arc-length param, matches TubeGeometry's getPointAt
+    tube_curve.getPointAt(u, C);
+    tube_sampleFrame(tube_geom, frameSegCnt, u, T, N, B);
+
+    const thetaOffset = (i % 2) * 0.5 * dTheta; // stagger odd rings
+
+    for (let j = 0; j < perRing; j++) {
+      const theta = thetaOffset + j * dTheta;
+
+      // Same parametrization as TubeGeometry: normal = cos*N + sin*B
+      n.set(0, 0, 0)
+        .addScaledVector(N, Math.cos(theta))
+        .addScaledVector(B, Math.sin(theta))
+        .normalize();
+
+      A.copy(C).addScaledVector(n, tube_radius);
+
+      thorn_composeMatrix(A, n, T, cosTilt, sinTilt, sink, mat);
+      mat.toArray(listMat4, k * 16);
+      k++;
+    }
+  }
+
+  return { size, geom, listMat4 };
 }
