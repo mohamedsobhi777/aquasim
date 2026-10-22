@@ -6,10 +6,8 @@ import {
 } from "./utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
-import {
-  branchingCoral_generate,
-  setupGenericLightingEnvironment,
-} from "./graphics";
+import { branchingCoral_generate } from "./reef";
+import { setupGenericLightingEnvironment } from "./lib/graphics";
 
 export class CMApp {
   private readonly TAG = "CMApp";

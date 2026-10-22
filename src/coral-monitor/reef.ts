@@ -4,6 +4,15 @@ import seedrandom from "seedrandom";
 
 import { TAU, UP_DIR, DEG2RAD, ZERO_VEC } from "./const";
 import type { RandomFunc } from "../types";
+import { object3D_countTriangle } from "./lib/graphics";
+
+interface CoralBranchTube {
+  /** Combination of tube and cap */
+  geom: THREE.BufferGeometry;
+  curve: THREE.Curve<THREE.Vector3>;
+  tube_geom: THREE.TubeGeometry;
+  tube_radialSegCnt: number;
+}
 
 /**
  * @param {THREE.Vector3} params.rootNormalVec
@@ -18,14 +27,12 @@ export function branchingCoral_generate(params: {
   root_ceilingHeight: number;
   seedHash: string;
 }) {
+  const thorn_radius = 0.01;
+  const thorn_height = 0.06;
+  const thorn_spacing = 0.06;
+  const thorn_tiltAngle_rad = 20 * DEG2RAD;
+
   // @region [sub]
-  interface BranchTube {
-    /** Combination of tube and cap */
-    geom: THREE.BufferGeometry;
-    curve: THREE.Curve<THREE.Vector3>;
-    tube_geom: THREE.TubeGeometry;
-    tube_radialSegCnt: number;
-  }
 
   const branchTube_cap_createGeom = (params: {
     capHeight: number;
@@ -83,7 +90,7 @@ export function branchingCoral_generate(params: {
     ceil_pt: THREE.Vector3;
     radius: number;
     randFn: RandomFunc;
-  }): BranchTube => {
+  }): CoralBranchTube => {
     const originCpt_vertSectionConstraints_ratio = [0.1, 0.9];
     const ceilCpt_horizSectionConstraints_ratio = [0.1, 0.9];
     const ceilCpt_vertSectionConstraints_ratio = [0.1, 0.9];
@@ -216,48 +223,31 @@ export function branchingCoral_generate(params: {
   });
 
   const rootBranchTube_thornCol = branchTube_createThorns({
-    thorn_radius: 0.01,
-    thorn_height: 0.06,
-    thorn_spacing: 0.06,
-    thorn_tiltAngle_rad: 20 * DEG2RAD,
+    thorn_radius,
+    thorn_height,
+    thorn_spacing,
+    thorn_tiltAngle_rad,
     tube_curve: rootBranchTube.curve,
     tube_radius: rootBranchTube_radius,
     tube_geom: rootBranchTube.tube_geom,
     tube_radialSegCnt: rootBranchTube.tube_radialSegCnt,
   });
 
-  const rootBranchTube_thornMesh = new THREE.InstancedMesh(
-    rootBranchTube_thornCol.geom,
+  const rootBranchTube_thornTotalGeom = thornCollection_mergeAll(
+    rootBranchTube_thornCol,
+  );
+
+  const rootBranchTube_finalGeom = BufferGeometryUtils.mergeGeometries([
+    rootBranchTube.geom,
+    rootBranchTube_thornTotalGeom,
+  ]);
+
+  const rootBranchTube_mesh = new THREE.Mesh(
+    rootBranchTube_finalGeom,
     material,
-    rootBranchTube_thornCol.size,
   );
-  (rootBranchTube_thornMesh.instanceMatrix.array as Float32Array).set(
-    rootBranchTube_thornCol.listMat4,
-  );
-  rootBranchTube_thornMesh.instanceMatrix.needsUpdate = true;
 
-  const rootBranchTube_mesh = new THREE.Mesh(rootBranchTube.geom, material);
-
-  const mesh_out = new THREE.Group();
-  mesh_out.add(rootBranchTube_mesh);
-  mesh_out.add(rootBranchTube_thornMesh);
-
-  return mesh_out;
-}
-
-export function setupGenericLightingEnvironment(scene: THREE.Scene) {
-  // Soft fill light: sky colour from above, ground colour from below
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
-
-  // Key light, like a sun
-  const key = new THREE.DirectionalLight(0xffffff, 2.5);
-  key.position.set(5, 10, 7);
-  scene.add(key);
-
-  // Rim/back light to show the silhouette
-  const rim = new THREE.DirectionalLight(0xffffff, 1.0);
-  rim.position.set(-5, 5, -7);
-  scene.add(rim);
+  return rootBranchTube_mesh;
 }
 
 interface ThornCollection {
@@ -298,8 +288,8 @@ function branchTube_createThorns(params: {
     const curve_baseCpFactor = 0.2;
     const curve_tipCpFactor = 0.8;
 
-    const curve_divisionCnt = 5;
-    const lathe_segCnt = 8;
+    const curve_divisionCnt = 4;
+    const lathe_segCnt = 4;
 
     // This curve is "normalized": Start at (1, 0) and end at (0, 1)
     const curve = new THREE.CubicBezierCurve(
@@ -498,4 +488,20 @@ function branchTube_createThorns(params: {
   }
 
   return { size, geom, listMat4 };
+}
+
+function thornCollection_mergeAll(
+  collection: ThornCollection,
+): THREE.BufferGeometry {
+  const mat4 = new THREE.Matrix4();
+  const listThorn_geom: Array<THREE.BufferGeometry> = [];
+
+  for (let i = 0; i < collection.size; i++) {
+    const thorn = collection.geom.clone();
+    mat4.fromArray(collection.listMat4, i * 16);
+    thorn.applyMatrix4(mat4);
+    listThorn_geom.push(thorn);
+  }
+
+  return BufferGeometryUtils.mergeGeometries(listThorn_geom);
 }
