@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import _ from "lodash";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import seedrandom from "seedrandom";
 
@@ -71,6 +72,11 @@ export function branchingCoral_generate(params: {
   const thorn_height = 0.06;
   const thorn_spacing = 0.06;
   const thorn_tiltAngle_rad = 20 * DEG2RAD;
+
+  const branchingPoint_maxCnt = 3;
+  const branchMaxCntPerBranchingPt = 2;
+
+  const branchingPoint_listChoice = _.range(branchingPoint_maxCnt + 1);
 
   // @region [sub]
 
@@ -249,6 +255,39 @@ export function branchingCoral_generate(params: {
     return branch;
   };
 
+  /** See prob GeoGebra file for understanding */
+  const branchingPointCnt_generate = (params: {
+    curGrowthLevel: number;
+    growthLevelCnt: number;
+    randFn: RandomFunc;
+  }) => {
+    const expoFn_base = 1.383;
+    const expoFn_yDownShift = 0.8;
+    const weightDecayFactor = 2;
+
+    const { curGrowthLevel, growthLevelCnt, randFn } = params;
+    const listWeight: Array<number> = [];
+
+    const d = branchingPoint_maxCnt / growthLevelCnt;
+
+    for (let x = 0; x <= branchingPoint_maxCnt; x++) {
+      const x1 = x - (curGrowthLevel - growthLevelCnt) * d;
+      const f_x1 = Math.pow(expoFn_base, x1) - expoFn_yDownShift;
+
+      const x2 =
+        branchingPoint_maxCnt -
+        weightDecayFactor * (x1 - branchingPoint_maxCnt);
+      const g_x2 = Math.pow(expoFn_base, x2) - expoFn_yDownShift;
+
+      const w = Math.max(Math.min(f_x1, g_x2), 0);
+      listWeight.push(w);
+    }
+
+    return weightedSelect(branchingPoint_listChoice, listWeight, {
+      rand: randFn,
+    });
+  };
+
   const growCoral = (params: {
     curGrowthLevel: number;
     branch: CoralBranchTube;
@@ -274,7 +313,11 @@ export function branchingCoral_generate(params: {
       return;
     }
 
-
+    const branchingPointCnt = branchingPointCnt_generate({
+      curGrowthLevel,
+      growthLevelCnt,
+      randFn,
+    });
   };
   // @endregion [sub]
 
@@ -284,6 +327,7 @@ export function branchingCoral_generate(params: {
     root_radius,
     material,
     root_ceilingHeight,
+    growthLevelCnt,
   } = params;
   const randFn = seedrandom(seedHash);
 
@@ -296,7 +340,7 @@ export function branchingCoral_generate(params: {
     randFn,
   });
   growCoral({
-    curGrowthLevel: 0,
+    curGrowthLevel: growthLevelCnt,
     branch: rootBranchTube,
     merger,
   });
