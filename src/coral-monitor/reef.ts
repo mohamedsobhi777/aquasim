@@ -6,6 +6,10 @@ import { TAU, UP_DIR, DEG2RAD, ZERO_VEC } from "./const";
 import type { RandomFunc } from "../types";
 import { object3D_countTriangle } from "./lib/graphics";
 
+import weightedSelect from "./lib-external/weighted";
+
+console.log(weightedSelect([1]));
+
 interface CoralBranchTube {
   /** Combination of tube and cap */
   geom: THREE.BufferGeometry;

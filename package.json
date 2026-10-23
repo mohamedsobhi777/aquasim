@@ -13,7 +13,6 @@
     "@types/lodash": "^4.17.26",
     "@types/seedrandom": "^3.0.8",
     "@types/three": "^0.186.0",
-    "@types/xxhashjs": "^0.2.4",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   },
