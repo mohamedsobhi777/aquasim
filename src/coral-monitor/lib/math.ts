@@ -1,4 +1,4 @@
-import type { RandomFunc } from "../../types";
+import type { RandomFunc } from "../types";
 
 export function randRange(params: {
   a: number;

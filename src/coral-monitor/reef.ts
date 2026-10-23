@@ -3,7 +3,7 @@ import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import seedrandom from "seedrandom";
 
 import { TAU, UP_DIR, DEG2RAD } from "./const";
-import type { RandomFunc } from "../types";
+import type { RandomFunc } from "./types";
 
 import weightedSelect from "./lib-external/weighted";
 import { randRange } from "./lib/math";
