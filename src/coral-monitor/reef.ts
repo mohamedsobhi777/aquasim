@@ -6,7 +6,7 @@ import { TAU, UP_DIR, DEG2RAD } from "./const";
 import type { RandomFunc } from "../types";
 
 import weightedSelect from "./lib-external/weighted";
-import { randRange } from "./lib/utils-math";
+import { randRange } from "./lib/math";
 
 class GeometryMerger {
   listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
