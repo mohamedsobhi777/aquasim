@@ -55,3 +55,29 @@ export async function waitAsync(msec: number) {
     }, msec);
   });
 }
+
+export function xyz_toCommaDelimStr(
+  v: { x: number; y: number; z?: number; w?: number },
+  decimalPlaces?: number,
+): string {
+  // #region [sub]
+  const number_toStr = (num: number) => {
+    return decimalPlaces !== undefined
+      ? num.toFixed(decimalPlaces)
+      : num.toFixed(5);
+  };
+
+  let s = `${number_toStr(v.x)},${number_toStr(v.y)}`;
+
+  if (v.z !== undefined) {
+    s += `,${number_toStr(v.z)}`;
+
+    if (v.w !== undefined) {
+      s += `,${number_toStr(v.w)}`;
+    }
+  }
+
+  s = `(${s})`;
+  return s;
+  // #endregion [sub]
+}
