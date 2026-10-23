@@ -25,7 +25,7 @@ interface CoralBranchTube {
 export function branchingCoral_generate(params: {
   root_forwardVec: THREE.Vector3;
   root_ceilingHeight: number;
-  material: THREE.Material,
+  material: THREE.Material;
   seedHash: string;
 }) {
   const thorn_radius = 0.01;
@@ -94,8 +94,8 @@ export function branchingCoral_generate(params: {
     randFn: RandomFunc;
   }): CoralBranchTube => {
     const originCpt_vertSectionConstraints_ratio = [0.1, 0.9];
-    const ceilCpt_horizSectionConstraints_ratio = [0.1, 0.9];
-    const ceilCpt_vertSectionConstraints_ratio = [0.1, 0.9];
+    const ceilCpt_horizSectionConstraints_ratio = [0.1, 0.5];
+    const ceilCpt_vertSectionConstraints_ratio = [0.1, 0.6];
 
     const tube_tubeSegCnt = 20;
     const tube_radialSegCnt = 8;
@@ -130,13 +130,6 @@ export function branchingCoral_generate(params: {
             ceilCpt_vertSectionConstraints_ratio[0]) *
             randFn(),
       );
-
-    // Range: -90 <= x < 90 (in degrees)
-    const rand_rotation = -Math.PI * 0.5 + Math.PI * randFn();
-
-    originCpt.applyAxisAngle(UP_DIR, rand_rotation);
-    ceilCpt.applyAxisAngle(UP_DIR, rand_rotation);
-    ceil_pt.applyAxisAngle(UP_DIR, rand_rotation);
 
     const tube_curve = new THREE.CubicBezierCurve3(
       ZERO_VEC,
@@ -185,7 +178,12 @@ export function branchingCoral_generate(params: {
 
     const { forward_vec, ceilingHeight, radius, randFn } = params;
 
-    const forward_dir = forward_vec.clone().normalize();
+    const rand_rotation = randFn() * TAU;
+
+    const forward_dir = forward_vec
+      .clone()
+      .normalize()
+      .applyAxisAngle(UP_DIR, rand_rotation);
     const N = UP_DIR.clone().cross(forward_vec).normalize();
     const localUp_dir = forward_vec.clone().cross(N).normalize();
 
@@ -202,19 +200,21 @@ export function branchingCoral_generate(params: {
       )
       .addScaledVector(localUp_dir, ceilingHeight);
 
-    return branchTube_generate({
-      parentBranch_forwardVec: forward_vec,
+    const branch = branchTube_generate({
+      parentBranch_forwardVec: forward_dir,
       ceil_pt,
       radius,
       randFn,
     });
+
+    return branch;
   };
   // @endregion [sub]
 
   const { seedHash, root_forwardVec, material, root_ceilingHeight } = params;
   const randFn = seedrandom(seedHash);
 
-  const rootBranchTube_radius = 0.1;
+  const rootBranchTube_radius = 0.06;
   const rootBranchTube = rootBranchTube_generate({
     forward_vec: root_forwardVec,
     ceilingHeight: root_ceilingHeight,
