@@ -9,14 +9,13 @@ import { object3D_countTriangle } from "./lib/graphics";
 
 import weightedSelect from "./lib-external/weighted";
 
-console.log(weightedSelect([1]));
-
 interface CoralBranchTube {
   /** Combination of tube and cap */
   geom: THREE.BufferGeometry;
   curve: THREE.Curve<THREE.Vector3>;
   tube_geom: THREE.TubeGeometry;
   tube_radialSegCnt: number;
+  tube_radius: number;
 }
 
 class GeometryMerger {
@@ -68,6 +67,11 @@ export function branchingCoral_generate(params: {
   material: THREE.Material;
   seedHash: string;
 }) {
+  interface growCoral_QueueItem {
+    branch: CoralBranchTube;
+    growthLevel: number;
+  }
+
   const thorn_radius = 0.01;
   const thorn_height = 0.06;
   const thorn_spacing = 0.06;
@@ -76,10 +80,7 @@ export function branchingCoral_generate(params: {
   const branchingPoint_maxCnt = 3;
   const branchMaxCntPerBranchingPt = 2;
 
-  const branchingPoint_listChoice = _.range(branchingPoint_maxCnt + 1);
-
   // @region [sub]
-
   const branchTube_cap_createGeom = (params: {
     capHeight: number;
     tube_radius: number;
@@ -210,6 +211,7 @@ export function branchingCoral_generate(params: {
       curve: tube_curve,
       tube_geom: tube_geom,
       tube_radialSegCnt: tube_radialSegCnt,
+      tube_radius: radius,
     };
   };
 
@@ -255,7 +257,9 @@ export function branchingCoral_generate(params: {
     return branch;
   };
 
-  /** See prob GeoGebra file for understanding */
+  /**
+   * See prob.gbb file to understand about the choice of function for computing selection weight
+   */
   const branchingPointCnt_generate = (params: {
     curGrowthLevel: number;
     growthLevelCnt: number;
@@ -266,6 +270,8 @@ export function branchingCoral_generate(params: {
     const weightDecayFactor = 2;
 
     const { curGrowthLevel, growthLevelCnt, randFn } = params;
+
+    const listChoice: Array<number> = [];
     const listWeight: Array<number> = [];
 
     const d = branchingPoint_maxCnt / growthLevelCnt;
@@ -279,45 +285,117 @@ export function branchingCoral_generate(params: {
         weightDecayFactor * (x1 - branchingPoint_maxCnt);
       const g_x2 = Math.pow(expoFn_base, x2) - expoFn_yDownShift;
 
-      const w = Math.max(Math.min(f_x1, g_x2), 0);
+      const w = Math.min(f_x1, g_x2);
+      if (w < 0) {
+        continue;
+      }
+
+      listChoice.push(x);
       listWeight.push(w);
     }
 
-    return weightedSelect(branchingPoint_listChoice, listWeight, {
-      rand: randFn,
-    });
-  };
-
-  const growCoral = (params: {
-    curGrowthLevel: number;
-    branch: CoralBranchTube;
-    merger: GeometryMerger;
-  }) => {
-    const { branch, merger, curGrowthLevel } = params;
-
-    merger.push(branch.geom);
-
-    const branch_thornCol = branchTube_createThorns({
-      thorn_radius,
-      thorn_height,
-      thorn_spacing,
-      thorn_tiltAngle_rad,
-      tube_curve: branch.curve,
-      tube_radius: root_radius,
-      tube_geom: branch.tube_geom,
-      tube_radialSegCnt: branch.tube_radialSegCnt,
-    });
-    merger.push(branch_thornCol);
-
-    if (curGrowthLevel == 0) {
-      return;
+    if (listChoice.length === 0) {
+      return 0;
     }
 
-    const branchingPointCnt = branchingPointCnt_generate({
-      curGrowthLevel,
-      growthLevelCnt,
-      randFn,
+    if (listChoice.length === 1) {
+      return listChoice[0];
+    }
+
+    return weightedSelect(listChoice, listWeight, { rand: randFn });
+  };
+
+  const branchingLocation_generate = (params: {
+    branchingPointCnt: number;
+    randFn: RandomFunc;
+  }) => {
+    const locationConstraints_ratio = [0.05, 0.9];
+
+    const { branchingPointCnt, randFn } = params;
+
+    const listLocation: Array<number> = [];
+
+    for (let i = 0; i < branchingPointCnt; i++) {
+      const rand_location =
+        locationConstraints_ratio[0] +
+        (locationConstraints_ratio[1] - locationConstraints_ratio[0]) *
+          randFn();
+      listLocation.push(rand_location);
+    }
+
+    listLocation.sort();
+
+    return listLocation;
+  };
+
+  const branch_generate = (params: {
+    parentBranch: CoralBranchTube;
+    parentGrowthLevel: number;
+    location: number;
+    queue: Array<growCoral_QueueItem>;
+    randFn: RandomFunc;
+  }) => {
+
+  }
+
+  const growCoral = (params: {
+    rootBranch: CoralBranchTube;
+    merger: GeometryMerger;
+    randFn: RandomFunc;
+  }) => {
+    const { rootBranch, merger, randFn } = params;
+
+    let queue: Array<growCoral_QueueItem> = [];
+    queue.push({
+      branch: rootBranch,
+      growthLevel: growthLevelCnt,
     });
+
+    while (queue.length > 0) {
+      const { branch: curBranch, growthLevel: curGrowthLevel } = queue.shift()!;
+
+      merger.push(curBranch.geom);
+
+      const curBranch_thornCol = branchTube_createThorns({
+        thorn_radius,
+        thorn_height,
+        thorn_spacing,
+        thorn_tiltAngle_rad,
+        tube_curve: curBranch.curve,
+        tube_radius: curBranch.tube_radius,
+        tube_geom: curBranch.tube_geom,
+        tube_radialSegCnt: curBranch.tube_radialSegCnt,
+      });
+      merger.push(curBranch_thornCol);
+
+      if (curGrowthLevel == 0) {
+        continue;
+      }
+
+      const branchingPointCnt = branchingPointCnt_generate({
+        curGrowthLevel,
+        growthLevelCnt,
+        randFn,
+      });
+      if (branchingPointCnt == 0) {
+        continue;
+      }
+
+      const listBranchLocation = branchingLocation_generate({
+        branchingPointCnt,
+        randFn,
+      });
+
+      for (const location of listBranchLocation) {
+        branch_generate({
+          parentBranch: curBranch,
+          parentGrowthLevel: curGrowthLevel,
+          location,
+          queue,
+          randFn,
+        });
+      }
+    }
   };
   // @endregion [sub]
 
@@ -340,9 +418,9 @@ export function branchingCoral_generate(params: {
     randFn,
   });
   growCoral({
-    curGrowthLevel: growthLevelCnt,
-    branch: rootBranchTube,
+    rootBranch: rootBranchTube,
     merger,
+    randFn,
   });
 
   const rootBranchTube_finalGeom = merger.merge();
