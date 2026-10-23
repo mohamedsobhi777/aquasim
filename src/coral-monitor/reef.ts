@@ -349,7 +349,7 @@ export function branchingCoral_generate(params: {
     randFn: RandomFunc;
   }) => {
     const branch_angularDistConstraints_deg = [20, 80];
-    const branch_angularDeviationConstraint_deg = 30;
+    const branch_angularDeviationConstraint_deg = 150;
 
     const branch_ceilingHeightMin = 0.05;
     const branch_ceilAboveParentConstraint = 0.1;
@@ -415,12 +415,23 @@ export function branchingCoral_generate(params: {
     const parent_NDir = parent_forwardDir.clone().cross(UP_DIR);
     const parent_rightDir = UP_DIR.clone().cross(parent_NDir);
 
+    console.log(
+      "here",
+      location,
+      parent_growthLevel,
+      parent_forwardDir,
+      parent_NDir,
+      parent_rightDir,
+    );
+
     const branch_randRot =
       randRange({
-        a: branch_angularDeviationConstraint_deg,
-        b: 360 - branch_angularDeviationConstraint_deg,
+        a: -branch_angularDeviationConstraint_deg,
+        b: branch_angularDeviationConstraint_deg,
         randFn,
       }) * DEG2RAD;
+
+    console.log(`branch_randRot_deg`, branch_randRot / DEG2RAD);
 
     for (let i = 0; i < branch_listUpDirAngle_deg.length; i++) {
       const upAngle_rad = branch_listUpDirAngle_deg[i] * DEG2RAD;
@@ -431,6 +442,8 @@ export function branchingCoral_generate(params: {
         .addScaledVector(parent_rightDir, Math.sin(upAngle_rad))
         .multiplyScalar(ceil_distToRoot)
         .add(branch_root_pt);
+
+      console.log(`here2`, i, branch_listUpDirAngle_deg[i], ceil_pt.clone().sub(branch_root_pt));
 
       ceil_pt
         .sub(branch_root_pt)
