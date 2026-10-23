@@ -14,6 +14,39 @@ interface CoralBranchTube {
   tube_radialSegCnt: number;
 }
 
+class GeometryMerger {
+  listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
+
+  constructor() {}
+
+  push(geom: THREE.BufferGeometry | InstancedGeometryCollection) {
+    this.listGeom.push(geom);
+  }
+
+  merge() {
+    let listBufferGeom: Array<THREE.BufferGeometry> = [];
+
+    for (const geom of this.listGeom) {
+      if (geom instanceof THREE.BufferGeometry) {
+        listBufferGeom.push(geom);
+      } else if ("listMat4" in geom) {
+        const collection = geom as InstancedGeometryCollection;
+
+        const mat4 = new THREE.Matrix4();
+
+        for (let i = 0; i < collection.count; i++) {
+          const instance = collection.geom.clone();
+          mat4.fromArray(collection.listMat4, i * 16);
+          instance.applyMatrix4(mat4);
+          listBufferGeom.push(instance);
+        }
+      }
+    }
+
+    return BufferGeometryUtils.mergeGeometries(listBufferGeom);
+  }
+}
+
 /**
  * @param {THREE.Vector3} params.rootNormalVec
  *    The normal vector of the surface where the coral is rooted
@@ -25,6 +58,8 @@ interface CoralBranchTube {
 export function branchingCoral_generate(params: {
   root_forwardVec: THREE.Vector3;
   root_ceilingHeight: number;
+  root_radius: number;
+  growthLevelCnt: number;
   material: THREE.Material;
   seedHash: string;
 }) {
@@ -209,38 +244,60 @@ export function branchingCoral_generate(params: {
 
     return branch;
   };
+
+  const growCoral = (params: {
+    curGrowthLevel: number;
+    branch: CoralBranchTube;
+    merger: GeometryMerger;
+  }) => {
+    const { branch, merger, curGrowthLevel } = params;
+
+    merger.push(branch.geom);
+
+    const branch_thornCol = branchTube_createThorns({
+      thorn_radius,
+      thorn_height,
+      thorn_spacing,
+      thorn_tiltAngle_rad,
+      tube_curve: branch.curve,
+      tube_radius: root_radius,
+      tube_geom: branch.tube_geom,
+      tube_radialSegCnt: branch.tube_radialSegCnt,
+    });
+    merger.push(branch_thornCol);
+
+    if (curGrowthLevel == 0) {
+      return;
+    }
+
+
+  };
   // @endregion [sub]
 
-  const { seedHash, root_forwardVec, material, root_ceilingHeight } = params;
+  const {
+    seedHash,
+    root_forwardVec,
+    root_radius,
+    material,
+    root_ceilingHeight,
+  } = params;
   const randFn = seedrandom(seedHash);
 
-  const rootBranchTube_radius = 0.06;
+  const merger = new GeometryMerger();
+
   const rootBranchTube = rootBranchTube_generate({
     forward_vec: root_forwardVec,
     ceilingHeight: root_ceilingHeight,
-    radius: rootBranchTube_radius,
+    radius: root_radius,
     randFn,
   });
-
-  const rootBranchTube_thornCol = branchTube_createThorns({
-    thorn_radius,
-    thorn_height,
-    thorn_spacing,
-    thorn_tiltAngle_rad,
-    tube_curve: rootBranchTube.curve,
-    tube_radius: rootBranchTube_radius,
-    tube_geom: rootBranchTube.tube_geom,
-    tube_radialSegCnt: rootBranchTube.tube_radialSegCnt,
+  growCoral({
+    curGrowthLevel: 0,
+    branch: rootBranchTube,
+    merger,
   });
 
-  const rootBranchTube_thornTotalGeom = thornCollection_mergeAll(
-    rootBranchTube_thornCol,
-  );
-
-  const rootBranchTube_finalGeom = BufferGeometryUtils.mergeGeometries([
-    rootBranchTube.geom,
-    rootBranchTube_thornTotalGeom,
-  ]);
+  const rootBranchTube_finalGeom = merger.merge();
 
   const rootBranchTube_mesh = new THREE.Mesh(
     rootBranchTube_finalGeom,
@@ -250,15 +307,19 @@ export function branchingCoral_generate(params: {
   return rootBranchTube_mesh;
 }
 
-interface ThornCollection {
-  // Number of thorn
-  size: number;
+/**
+ * Represent a N copy of the same geometry, each with its own transformation matrix.
+ */
+interface InstancedGeometryCollection {
+  /** N: Number of instances */
+  count: number;
 
-  // LatheGeometry of a single thorn
   geom: THREE.BufferGeometry;
 
-  // Size: N * 16
-  // Transformation matrices for each thorn (4x4 matrix per thorn)
+  /**
+   * Size:  N * 16
+   * Transformation matrices for each instance (4x4 matrix per instance)
+   */
   listMat4: Float32Array;
 }
 
@@ -271,7 +332,7 @@ function branchTube_createThorns(params: {
   tube_radius: number;
   tube_geom: THREE.TubeGeometry;
   tube_radialSegCnt: number;
-}): ThornCollection {
+}): InstancedGeometryCollection {
   // #region [sub]
 
   /**
@@ -430,7 +491,7 @@ function branchTube_createThorns(params: {
   const size = ringCnt * perRing;
   const listMat4 = new Float32Array(size * 16);
   if (size === 0) {
-    return { size, geom, listMat4 };
+    return { count: size, geom, listMat4 };
   }
 
   // Center the rings so bottom and tip margins are equal
@@ -487,21 +548,5 @@ function branchTube_createThorns(params: {
     }
   }
 
-  return { size, geom, listMat4 };
-}
-
-function thornCollection_mergeAll(
-  collection: ThornCollection,
-): THREE.BufferGeometry {
-  const mat4 = new THREE.Matrix4();
-  const listThorn_geom: Array<THREE.BufferGeometry> = [];
-
-  for (let i = 0; i < collection.size; i++) {
-    const thorn = collection.geom.clone();
-    mat4.fromArray(collection.listMat4, i * 16);
-    thorn.applyMatrix4(mat4);
-    listThorn_geom.push(thorn);
-  }
-
-  return BufferGeometryUtils.mergeGeometries(listThorn_geom);
+  return { count: size, geom, listMat4 };
 }
