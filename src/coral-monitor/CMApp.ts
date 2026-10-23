@@ -3,7 +3,7 @@ import { OrbitControls } from "three/examples/jsm/Addons.js";
 import {
   htmlElement_createFromTemplate,
   htmlElement_updateStyle,
-} from "./utils";
+} from "./lib/utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
 import { branchingCoral_generate } from "./reef";
@@ -155,6 +155,7 @@ export class CMApp {
     setupGenericLightingEnvironment(scene);
 
     const coral = branchingCoral_generate({
+      root_pt: new THREE.Vector3(0, 0, 0),
       root_forwardVec: new THREE.Vector3(1, 0, 0),
       root_ceilingHeight: 1.5,
       root_radius: 0.06,

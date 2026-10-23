@@ -1,22 +1,12 @@
 import * as THREE from "three";
-import _ from "lodash";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import seedrandom from "seedrandom";
 
-import { TAU, UP_DIR, DEG2RAD, ZERO_VEC } from "./const";
+import { TAU, UP_DIR, DEG2RAD } from "./const";
 import type { RandomFunc } from "../types";
-import { object3D_countTriangle } from "./lib/graphics";
 
 import weightedSelect from "./lib-external/weighted";
-
-interface CoralBranchTube {
-  /** Combination of tube and cap */
-  geom: THREE.BufferGeometry;
-  curve: THREE.Curve<THREE.Vector3>;
-  tube_geom: THREE.TubeGeometry;
-  tube_radialSegCnt: number;
-  tube_radius: number;
-}
+import { randRange } from "./lib/utils-math";
 
 class GeometryMerger {
   listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
@@ -51,15 +41,26 @@ class GeometryMerger {
   }
 }
 
+interface CoralBranchTube {
+  /** Combination of tube and cap */
+  geom: THREE.BufferGeometry;
+  curve: THREE.Curve<THREE.Vector3>;
+  tube_geom: THREE.TubeGeometry;
+  tube_radialSegCnt: number;
+  tube_radius: number;
+}
+
 /**
+ * @param {THREE.Vector3} params.root_pt
+ *    The root point of the coral
  * @param {THREE.Vector3} params.rootNormalVec
  *    The normal vector of the surface where the coral is rooted
  * @param {number} params.rootCeilingHeight
  *    The maximum height from the surface to the tip of the root branch of the coral
  *
- * The mesh zero point is at the base of the coral where it is rooted
  */
 export function branchingCoral_generate(params: {
+  root_pt: THREE.Vector3;
   root_forwardVec: THREE.Vector3;
   root_ceilingHeight: number;
   root_radius: number;
@@ -78,7 +79,6 @@ export function branchingCoral_generate(params: {
   const thorn_tiltAngle_rad = 20 * DEG2RAD;
 
   const branchingPoint_maxCnt = 3;
-  const branchMaxCntPerBranchingPt = 2;
 
   // @region [sub]
   const branchTube_cap_createGeom = (params: {
@@ -134,7 +134,8 @@ export function branchingCoral_generate(params: {
   };
 
   const branchTube_generate = (params: {
-    parentBranch_forwardVec: THREE.Vector3;
+    forward_vec: THREE.Vector3;
+    root_pt: THREE.Vector3;
     ceil_pt: THREE.Vector3;
     radius: number;
     randFn: RandomFunc;
@@ -147,38 +148,46 @@ export function branchingCoral_generate(params: {
     const tube_radialSegCnt = 8;
     const capHeight = 0.1;
 
-    const { parentBranch_forwardVec, radius, ceil_pt, randFn } = params;
+    const { forward_vec, radius, root_pt, ceil_pt, randFn } = params;
 
-    const ground_pt = ceil_pt.clone().projectOnVector(parentBranch_forwardVec);
-    const horiz_vec = ground_pt.clone().sub(ZERO_VEC);
+    const ground_pt = ceil_pt
+      .clone()
+      .sub(root_pt)
+      .projectOnVector(forward_vec)
+      .add(root_pt);
+    const horiz_vec = ground_pt.clone().sub(root_pt);
     const vert_vec = ceil_pt.clone().sub(ground_pt);
 
-    const originCpt = ZERO_VEC.clone().addScaledVector(
+    const originCpt = root_pt.clone().addScaledVector(
       vert_vec,
-      originCpt_vertSectionConstraints_ratio[0] +
-        (originCpt_vertSectionConstraints_ratio[1] -
-          originCpt_vertSectionConstraints_ratio[0]) *
-          randFn(),
+      randRange({
+        a: originCpt_vertSectionConstraints_ratio[0],
+        b: originCpt_vertSectionConstraints_ratio[1],
+        randFn,
+      }),
     );
 
-    const ceilCpt = ZERO_VEC.clone()
+    const ceilCpt = root_pt
+      .clone()
       .addScaledVector(
         horiz_vec,
-        ceilCpt_horizSectionConstraints_ratio[0] +
-          (ceilCpt_horizSectionConstraints_ratio[1] -
-            ceilCpt_horizSectionConstraints_ratio[0]) *
-            randFn(),
+        randRange({
+          a: ceilCpt_horizSectionConstraints_ratio[0],
+          b: ceilCpt_horizSectionConstraints_ratio[1],
+          randFn,
+        }),
       )
       .addScaledVector(
         vert_vec,
-        ceilCpt_vertSectionConstraints_ratio[0] +
-          (ceilCpt_vertSectionConstraints_ratio[1] -
-            ceilCpt_vertSectionConstraints_ratio[0]) *
-            randFn(),
+        randRange({
+          a: ceilCpt_vertSectionConstraints_ratio[0],
+          b: ceilCpt_vertSectionConstraints_ratio[1],
+          randFn,
+        }),
       );
 
     const tube_curve = new THREE.CubicBezierCurve3(
-      ZERO_VEC,
+      root_pt,
       originCpt,
       ceilCpt,
       ceil_pt,
@@ -216,6 +225,7 @@ export function branchingCoral_generate(params: {
   };
 
   const rootBranchTube_generate = (params: {
+    root_pt: THREE.Vector3;
     forward_vec: THREE.Vector3;
     ceilingHeight: number;
     radius: number;
@@ -223,7 +233,7 @@ export function branchingCoral_generate(params: {
   }) => {
     const ceil_gapConstraints_ratio = [0.4, 1.5];
 
-    const { forward_vec, ceilingHeight, radius, randFn } = params;
+    const { root_pt, forward_vec, ceilingHeight, radius, randFn } = params;
 
     const rand_rotation = randFn() * TAU;
 
@@ -236,19 +246,27 @@ export function branchingCoral_generate(params: {
 
     const ceil_gapConstraint =
       ceilingHeight *
-      (ceil_gapConstraints_ratio[0] +
-        (ceil_gapConstraints_ratio[1] - ceil_gapConstraints_ratio[0]) *
-          randFn());
+      randRange({
+        a: ceil_gapConstraints_ratio[0],
+        b: ceil_gapConstraints_ratio[1],
+        randFn,
+      });
 
-    const ceil_pt = ZERO_VEC.clone()
+    const ceil_pt = root_pt
+      .clone()
       .addScaledVector(
         forward_dir,
-        -ceil_gapConstraint + 2 * ceil_gapConstraint * randFn(),
+        randRange({
+          a: -ceil_gapConstraint,
+          b: ceil_gapConstraint,
+          randFn,
+        }),
       )
       .addScaledVector(localUp_dir, ceilingHeight);
 
     const branch = branchTube_generate({
-      parentBranch_forwardVec: forward_dir,
+      forward_vec: forward_dir,
+      root_pt,
       ceil_pt,
       radius,
       randFn,
@@ -316,10 +334,11 @@ export function branchingCoral_generate(params: {
     const listLocation: Array<number> = [];
 
     for (let i = 0; i < branchingPointCnt; i++) {
-      const rand_location =
-        locationConstraints_ratio[0] +
-        (locationConstraints_ratio[1] - locationConstraints_ratio[0]) *
-          randFn();
+      const rand_location = randRange({
+        a: locationConstraints_ratio[0],
+        b: locationConstraints_ratio[1],
+        randFn,
+      });
       listLocation.push(rand_location);
     }
 
@@ -335,8 +354,41 @@ export function branchingCoral_generate(params: {
     queue: Array<growCoral_QueueItem>;
     randFn: RandomFunc;
   }) => {
+    const branch_upDirAngleConstraint_deg = 75;
+    const branch_angularDistConstraints_deg = [20, 80];
 
-  }
+    const { parentBranch, parentGrowthLevel, location, queue, randFn } = params;
+
+    let branchCnt = 1;
+    if (location < 0.8) {
+      branchCnt = Math.ceil(2 * randFn());
+    }
+
+    const listBranch_upDirAngle_deg: Array<number> = [];
+    if (branchCnt == 1) {
+      listBranch_upDirAngle_deg.push(
+        randRange({
+          a: -branch_upDirAngleConstraint_deg,
+          b: branch_upDirAngleConstraint_deg,
+          randFn: randFn,
+        }),
+      );
+    } else {
+      const branch_angularDist_deg = randRange({
+        a: branch_angularDistConstraints_deg[0],
+        b: branch_angularDistConstraints_deg[1],
+        randFn: randFn,
+      });
+
+      const d1 = randRange({
+        a: -branch_angularDist_deg / 2,
+        b: branch_angularDist_deg / 2 - branch_angularDist_deg,
+        randFn: randFn,
+      });
+      const d2 = d1 + branch_angularDist_deg;
+      listBranch_upDirAngle_deg.push(d1, d2);
+    }
+  };
 
   const growCoral = (params: {
     rootBranch: CoralBranchTube;
@@ -401,6 +453,7 @@ export function branchingCoral_generate(params: {
 
   const {
     seedHash,
+    root_pt,
     root_forwardVec,
     root_radius,
     material,
@@ -412,6 +465,7 @@ export function branchingCoral_generate(params: {
   const merger = new GeometryMerger();
 
   const rootBranchTube = rootBranchTube_generate({
+    root_pt,
     forward_vec: root_forwardVec,
     ceilingHeight: root_ceilingHeight,
     radius: root_radius,
