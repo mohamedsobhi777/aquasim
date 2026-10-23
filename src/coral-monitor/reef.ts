@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import seedrandom from "seedrandom";
 
-import { TAU, UP_DIR, DEG2RAD } from "./const";
+import { TAU, UP_DIR, DEG2RAD, ZERO_VEC } from "./const";
 import type { RandomFunc } from "./types";
 
 import weightedSelect from "./lib-external/weighted";
@@ -78,6 +78,7 @@ export function branchingCoral_generate(params: {
   const thorn_spacing = 0.06;
   const thorn_tiltAngle_rad = 20 * DEG2RAD;
 
+  const branch_upDirAngleConstraint_deg = 75;
   const branchingPoint_maxCnt = 3;
 
   // @region [sub]
@@ -231,43 +232,36 @@ export function branchingCoral_generate(params: {
     radius: number;
     randFn: RandomFunc;
   }) => {
-    const ceil_gapConstraints_ratio = [0.4, 1.5];
-
     const { root_pt, forward_vec, ceilingHeight, radius, randFn } = params;
 
-    const rand_rotation = randFn() * TAU;
+    const forward_upAngle_rad = forward_vec.angleTo(UP_DIR);
+    const ceil_upAngle_rad = randRange({
+      a: -branch_upDirAngleConstraint_deg * DEG2RAD,
+      b: Math.min(
+        branch_upDirAngleConstraint_deg * DEG2RAD,
+        forward_upAngle_rad,
+      ),
+      randFn,
+    });
 
-    const forward_dir = forward_vec
-      .clone()
-      .normalize()
-      .applyAxisAngle(UP_DIR, rand_rotation);
-    const N = UP_DIR.clone().cross(forward_vec).normalize();
-    const localUp_dir = forward_vec.clone().cross(N).normalize();
+    const n_dir = forward_vec.clone().cross(UP_DIR).normalize();
+    const right_dir = UP_DIR.clone().cross(n_dir).normalize();
+    const ceil_dir = ZERO_VEC.clone()
+      .addScaledVector(UP_DIR, Math.cos(ceil_upAngle_rad))
+      .addScaledVector(right_dir, Math.sin(ceil_upAngle_rad))
+      .normalize();
 
-    const ceil_gapConstraint =
-      ceilingHeight *
-      randRange({
-        a: ceil_gapConstraints_ratio[0],
-        b: ceil_gapConstraints_ratio[1],
-        randFn,
-      });
+    const branch_up_dir = n_dir.clone().cross(forward_vec).normalize();
+    const ceilToBranchUp_angle_rad = ceil_dir.angleTo(branch_up_dir);
+    const ceil_distToRoot = ceilingHeight / Math.cos(ceilToBranchUp_angle_rad);
+    const ceil_pt = root_pt.clone().addScaledVector(ceil_dir, ceil_distToRoot);
 
-    const ceil_pt = root_pt
-      .clone()
-      .addScaledVector(
-        forward_dir,
-        randRange({
-          a: -ceil_gapConstraint,
-          b: ceil_gapConstraint,
-          randFn,
-        }),
-      )
-      .addScaledVector(localUp_dir, ceilingHeight);
+    const rand_rot = TAU * randFn();
 
     const branch = branchTube_generate({
-      forward_vec: forward_dir,
+      forward_vec: forward_vec.clone().applyAxisAngle(UP_DIR, rand_rot),
       root_pt,
-      ceil_pt,
+      ceil_pt: ceil_pt.applyAxisAngle(UP_DIR, rand_rot),
       radius,
       randFn,
     });
@@ -347,26 +341,32 @@ export function branchingCoral_generate(params: {
     return listLocation;
   };
 
-  const branch_generate = (params: {
-    parentBranch: CoralBranchTube;
-    parentGrowthLevel: number;
+  const branch_generateOnParent = (params: {
+    parent: CoralBranchTube;
+    parent_growthLevel: number;
     location: number;
     queue: Array<growCoral_QueueItem>;
     randFn: RandomFunc;
   }) => {
-    const branch_upDirAngleConstraint_deg = 75;
     const branch_angularDistConstraints_deg = [20, 80];
+    const branch_angularDeviationConstraint_deg = 30;
 
-    const { parentBranch, parentGrowthLevel, location, queue, randFn } = params;
+    const branch_ceilingHeightMin = 0.05;
+    const branch_ceilAboveParentConstraint = 0.1;
+
+    const { parent, parent_growthLevel, location, queue, randFn } = params;
+
+    const branch_growthLevel = parent_growthLevel - 1;
 
     let branchCnt = 1;
     if (location < 0.8) {
       branchCnt = Math.ceil(2 * randFn());
     }
 
-    const listBranch_upDirAngle_deg: Array<number> = [];
+    const branch_listUpDirAngle_deg: Array<number> = [];
+
     if (branchCnt == 1) {
-      listBranch_upDirAngle_deg.push(
+      branch_listUpDirAngle_deg.push(
         randRange({
           a: -branch_upDirAngleConstraint_deg,
           b: branch_upDirAngleConstraint_deg,
@@ -386,7 +386,72 @@ export function branchingCoral_generate(params: {
         randFn: randFn,
       });
       const d2 = d1 + branch_angularDist_deg;
-      listBranch_upDirAngle_deg.push(d1, d2);
+      branch_listUpDirAngle_deg.push(d1, d2);
+    }
+
+    const branch_root_pt = parent.curve.getPoint(location);
+    const parent_tip_pt = parent.curve.getPoint(1);
+    const parent_tipOnUp_pt = parent_tip_pt
+      .clone()
+      .sub(branch_root_pt)
+      .projectOnVector(UP_DIR);
+    const branch_ceilingHeightMax =
+      parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) +
+      branch_ceilAboveParentConstraint;
+
+    const branch_listCeilingHeight: Array<number> = [];
+
+    for (let i = 0; i < branch_listUpDirAngle_deg.length; i++) {
+      branch_listCeilingHeight.push(
+        randRange({
+          a: branch_ceilingHeightMin,
+          b: branch_ceilingHeightMax,
+          randFn: randFn,
+        }),
+      );
+    }
+
+    const parent_forwardDir = parent.curve.getTangent(location);
+    const parent_NDir = parent_forwardDir.clone().cross(UP_DIR);
+    const parent_rightDir = UP_DIR.clone().cross(parent_NDir);
+
+    const branch_randRot =
+      randRange({
+        a: branch_angularDeviationConstraint_deg,
+        b: 360 - branch_angularDeviationConstraint_deg,
+        randFn,
+      }) * DEG2RAD;
+
+    for (let i = 0; i < branch_listUpDirAngle_deg.length; i++) {
+      const upAngle_rad = branch_listUpDirAngle_deg[i] * DEG2RAD;
+      const ceilingHeight = branch_listCeilingHeight[i];
+      const ceil_distToRoot = ceilingHeight / Math.cos(upAngle_rad);
+      const ceil_pt = ZERO_VEC.clone()
+        .addScaledVector(UP_DIR, Math.cos(upAngle_rad))
+        .addScaledVector(parent_rightDir, Math.sin(upAngle_rad))
+        .multiplyScalar(ceil_distToRoot)
+        .add(branch_root_pt);
+
+      ceil_pt
+        .sub(branch_root_pt)
+        .applyAxisAngle(UP_DIR, branch_randRot)
+        .add(branch_root_pt);
+
+      const forward_vec = parent_forwardDir
+        .clone()
+        .applyAxisAngle(UP_DIR, branch_randRot);
+
+      const branch = branchTube_generate({
+        ceil_pt: ceil_pt,
+        forward_vec: forward_vec,
+        root_pt: branch_root_pt,
+        radius: parent.tube_radius,
+        randFn: randFn,
+      });
+      queue.push({
+        branch: branch,
+        growthLevel: branch_growthLevel,
+      });
     }
   };
 
@@ -439,9 +504,9 @@ export function branchingCoral_generate(params: {
       });
 
       for (const location of listBranchLocation) {
-        branch_generate({
-          parentBranch: curBranch,
-          parentGrowthLevel: curGrowthLevel,
+        branch_generateOnParent({
+          parent: curBranch,
+          parent_growthLevel: curGrowthLevel,
           location,
           queue,
           randFn,
