@@ -1,7 +1,9 @@
 import "./style.css";
+import "./infra-inspect/style.css";
 import "./coral-monitor/style.css";
 
 import { CMApp } from "./coral-monitor/CMApp";
+import { UIIApp } from "./infra-inspect/UIIApp";
 
 class RootApp {
   private divIntroScreen: HTMLDivElement;
@@ -34,7 +36,18 @@ class RootApp {
   }
 
   // #region [events]
-  private headerItem_uii_onClick() {}
+  private async headerItem_uii_onClick() {
+    this.scenario_beforeOpen();
+
+    document.title = "Underwater Infrastructure Inspection";
+
+    const uiiApp = new UIIApp({
+      containerElement: document.querySelector("#d3-app") as HTMLDivElement,
+      onClose: this.scenario_afterClose.bind(this),
+    });
+
+    await uiiApp.init();
+  }
 
   private async headerItem_crm_onClick() {
     this.scenario_beforeOpen();
@@ -45,7 +58,6 @@ class RootApp {
       containerElement: document.querySelector("#d3-app") as HTMLDivElement,
       onClose: this.scenario_afterClose.bind(this),
     });
-    (window as any).cmApp = cmApp;
 
     await cmApp.init();
   }

@@ -1,0 +1,41 @@
+.infra-app.root {
+  display: flex;
+  position: relative;
+}
+
+.infra-app.boot-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #091d2e;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  color: white;
+}
+
+.infra-app.back-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  cursor: pointer;
+  background-color: #091d2e;
+  color: white;
+  font-size: 1.5rem;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.infra-app.back-btn:hover {
+  background-color: #1e68a8;
+}
+
+.infra-app.back-btn:active {
+  background-color: #13426b;
+}
