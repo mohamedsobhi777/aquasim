@@ -85,12 +85,12 @@ export function branchingCoral_generate(params: {
   const thorn_spacing = 0.06;
   const thorn_tiltAngle_rad = 20 * DEG2RAD;
 
-  const branch_minLengthHaveChild = 0.5;
+  const branch_minLengthHaveChild = 0.4;
   const branch_upDirAngleConstraint_deg = 75;
   const branchingPoint_maxCnt = 3;
 
   /** B[k] means that: If branch's curve length is >= B[k], it should have min k branching points */
-  const branchingPoint_minCntByCurveLength = [0, 0.6, 1, 1.2];
+  const branchingPoint_minCntByCurveLength = [0, 0.5, 0.8, 1.1];
 
   // @region [sub]
   const branchTube_cap_createGeom = (params: {
@@ -243,6 +243,9 @@ export function branchingCoral_generate(params: {
   }) => {
     const { root_pt, forward_vec, root_distToCeil, radius, randFn } = params;
 
+    // Increase randomness
+    randFn();
+
     const forward_upAngle_rad = forward_vec.angleTo(UP_DIR);
     const ceil_upAngle_rad = randRange({
       a: -branch_upDirAngleConstraint_deg * DEG2RAD,
@@ -261,11 +264,9 @@ export function branchingCoral_generate(params: {
       .normalize();
 
     const branch_up_dir = n_dir.clone().cross(forward_vec).normalize();
-    const ceilToBranchUp_angle_rad = ceil_dir.angleTo(branch_up_dir);
     const ceil_pt = root_pt.clone().addScaledVector(ceil_dir, root_distToCeil);
 
     let rand_rot = TAU * randFn();
-    rand_rot = 0;
 
     const branch = branchTube_generate({
       forward_vec: forward_vec.clone().applyAxisAngle(UP_DIR, rand_rot),
@@ -366,22 +367,53 @@ export function branchingCoral_generate(params: {
     return listLocation;
   };
 
+  const branchingRotationRad_generate = (params: {
+    branchingPointCnt: number;
+    randFn: RandomFunc;
+  }) => {
+    const branch_angularDeviationConstraint_deg = 150;
+    const branch_angularDistConstraint_deg = 30;
+
+    const { branchingPointCnt, randFn } = params;
+
+    const listRotation_rad: Array<number> = randMultipleWithMinDist({
+      a: -branch_angularDeviationConstraint_deg,
+      b: branch_angularDeviationConstraint_deg,
+      d: branch_angularDistConstraint_deg,
+      N: branchingPointCnt,
+      randFn,
+    });
+
+    for (let i = 0; i < listRotation_rad.length; i++) {
+      listRotation_rad[i] *= DEG2RAD;
+    }
+
+    return listRotation_rad;
+  };
+
   const branch_generateOnParent = (params: {
     parent: CoralBranchTube;
     parent_growthLevel: number;
     locationIdx: number;
     location: number;
+    rotation_rad: number;
     queue: Array<growCoral_QueueItem>;
     randFn: RandomFunc;
   }) => {
     const branch_angularDistConstraints_deg = [20, 80];
-    const branch_angularDeviationConstraint_deg = 150;
 
     const branch_ceilingHeightMin = 0.1;
     const branch_ceilDeviationFromParentConstraints = [-0.3, 0.1];
 
-    const { parent, parent_growthLevel, locationIdx, location, queue, randFn } =
-      params;
+    const {
+      parent,
+      parent_growthLevel,
+      locationIdx,
+      location,
+      rotation_rad,
+      queue,
+      randFn,
+    } = params;
 
     const branch_growthLevel = parent_growthLevel - 1;
 
@@ -470,13 +502,6 @@ export function branchingCoral_generate(params: {
     //   xyz_toCommaDelimStr(branch_root_pt),
     // );
 
-    let branch_randRot =
-      randRange({
-        a: -branch_angularDeviationConstraint_deg,
-        b: branch_angularDeviationConstraint_deg,
-        randFn,
-      }) * DEG2RAD;
-
     for (let i = 0; i < branch_listUpDirAngle_deg.length; i++) {
       const branch_id = `${parent.id}-${locationIdx},${i}`;
 
@@ -502,12 +527,12 @@ export function branchingCoral_generate(params: {
 
       ceil_pt
         .sub(branch_root_pt)
-        .applyAxisAngle(UP_DIR, branch_randRot)
+        .applyAxisAngle(UP_DIR, rotation_rad)
         .add(branch_root_pt);
 
       const forward_vec = parent_forwardDir
         .clone()
-        .applyAxisAngle(UP_DIR, branch_randRot);
+        .applyAxisAngle(UP_DIR, rotation_rad);
 
       const branch = branchTube_generate({
         ceil_pt: ceil_pt,
@@ -581,6 +606,10 @@ export function branchingCoral_generate(params: {
         branchingPointCnt,
         randFn,
       });
+      const listBranchRotation_rad = branchingRotationRad_generate({
+        branchingPointCnt,
+        randFn,
+      });
 
       for (let i = 0; i < listBranchLocation.length; i++) {
         branch_generateOnParent({
@@ -588,6 +617,7 @@ export function branchingCoral_generate(params: {
           parent_growthLevel: curGrowthLevel,
           locationIdx: i,
           location: listBranchLocation[i],
+          rotation_rad: listBranchRotation_rad[i],
           queue,
           randFn,
         });
