@@ -1009,43 +1009,93 @@ export function brainCoral_generate(params: {
     attr_position.needsUpdate = true;
   };
 
-  const updateMaterial = (params: {
-    material: THREE.MeshStandardMaterial;
-    seedHash: string;
-  }) => {
-    const { material, seedHash } = params;
+  const setupUV = (params: { sphere: THREE.SphereGeometry }) => {
+    const { sphere } = params;
 
-    const seed = xxh().update(seedHash).update("texture").digest().toNumber();
-    const noise = new FastNoiseLite(seed);
-    noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-    noise.SetFrequency(0.02);
-    noise.SetFractalType(FastNoiseLite.FractalType.PingPong);
-    noise.SetFractalPingPongStrength(2.11);
+    const attr_position = sphere.attributes.position;
+    const attr_uv = sphere.attributes.uv;
 
-    const imgSize = 512;
-    const imgData = new Uint8Array(imgSize * imgSize);
+    for (let i = 0; i < attr_position.count; i++) {
+      const x = attr_position.getX(i);
+      const y = attr_position.getY(i);
+      const z = attr_position.getZ(i);
 
-    for (let y = 0; y < imgSize; y++) {
-      for (let x = 0; x < imgSize; x++) {
-        let value = noise.GetNoise(x, y);
-        if (value < 0) {
-          value = -1;
-        } else {
-          value = 1;
-        }
+      const horizontalDistance = Math.hypot(x, z);
+      const theta = Math.atan2(horizontalDistance, y);
 
-        imgData[y * imgSize + x] = Math.floor((value + 1) * 0.5 * 255);
+      // Pole -> 0; hemisphere rim -> 0.5.
+      const imageRadius = theta / PI;
+
+      if (horizontalDistance < 1e-8) {
+        attr_uv.setXY(i, 0.5, 0.5);
+      } else {
+        attr_uv.setXY(
+          i,
+          0.5 + (imageRadius * x) / horizontalDistance,
+          0.5 - (imageRadius * z) / horizontalDistance,
+        );
       }
     }
 
+    attr_uv.needsUpdate = true;
+  };
+
+  const updateMaterial = (params: {
+    sphere_xSize: number;
+    sphere_zSize: number;
+    material: THREE.MeshStandardMaterial;
+    seedHash: string;
+  }) => {
+    const imgMinSizeConstraint = 800;
+
+    const { material, seedHash, sphere_xSize, sphere_zSize } = params;
+
+    const seed = xxh().update(seedHash).update("texture").digest().toNumber();
+    const noise = new FastNoiseLite(seed);
+
+    // The following settings are based on experiment,
+    // It simulates the brain pattern on the coral surface.
+    noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+    noise.SetFrequency(0.03);
+    noise.SetFractalType(FastNoiseLite.FractalType.PingPong);
+    noise.SetFractalPingPongStrength(2.11);
+
+    let img_width = imgMinSizeConstraint;
+    let img_height = imgMinSizeConstraint;
+
+    if (sphere_xSize > sphere_zSize) {
+      img_width = Math.ceil((sphere_xSize / sphere_zSize) * imgMinSizeConstraint);
+    } else if (sphere_zSize > sphere_xSize) {
+      img_height = Math.ceil((sphere_zSize / sphere_xSize) * imgMinSizeConstraint);
+    }
+
+    const imgData = new Uint8Array(img_height * img_width * 4);
+    const materialColor = material.color;
+
+    for (let y = 0; y < img_height; y++) {
+      for (let x = 0; x < img_width; x++) {
+        let value = noise.GetNoise(x, y);
+        if (value < 0) {
+          value = 0;
+        } else {
+          value = 1;
+        }
+        const idx = (y * img_width + x) * 4;
+        imgData[idx] = Math.floor(materialColor.r * value * 255);
+        imgData[idx + 1] = Math.floor(materialColor.g * value * 255);
+        imgData[idx + 2] = Math.floor(materialColor.b * value * 255);
+        imgData[idx + 3] = 255;
+      }
+    }
+
+    /** For real color, must use RGBA format. RGB is not accepted by GPU somehow  */
     const texture = new THREE.DataTexture(
       imgData,
-      imgSize,
-      imgSize,
-      THREE.RedFormat,
+      img_width,
+      img_height,
+      THREE.RGBAFormat,
       THREE.UnsignedByteType,
     );
-    // texture.colorSpace = THREE.NoColorSpace;
     texture.needsUpdate = true;
 
     material.map = texture;
@@ -1075,13 +1125,20 @@ export function brainCoral_generate(params: {
     PI / 2,
   );
   sphere.scale(x_size / 2, height, z_size / 2);
+
+  setupUV({ sphere });
+  updateMaterial({
+    material,
+    seedHash,
+    sphere_xSize: x_size,
+    sphere_zSize: z_size,
+  });
+
   deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
 
   sphere.applyMatrix4(
     new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
   );
-
-  updateMaterial({ material, seedHash });
 
   const mesh = new THREE.Mesh(sphere, material);
   return mesh;

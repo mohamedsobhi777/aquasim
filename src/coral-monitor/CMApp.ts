@@ -168,7 +168,7 @@ export class CMApp {
     const brainCoral = brainCoral_generate({
       root_pt: new THREE.Vector3(0.8, 0, 0.8),
       root_forwardVec: new THREE.Vector3(1, 0, 0),
-      material: new THREE.MeshStandardMaterial({ color: "#425543" }),
+      material: new THREE.MeshStandardMaterial({ color: "#82857c" }),
       x_size: 0.55,
       z_size: 0.6,
       height: 0.3,
