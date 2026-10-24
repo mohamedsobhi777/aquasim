@@ -1,13 +1,23 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Coral World</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coral World</title>
+</head>
+
+<body>
+  <div id="root">
+    <div id="d3-app"></div>
+    <div id="intro-screen">
+      <div style="font-size: 2rem; margin-bottom: 24px">AquaSim</div>
+      <div class="scenario-header-item scenario-uii">Underwater Infrastructure Inspection</div>
+      <div class="scenario-header-item scenario-crm">Coral Reef Monitoring</div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>

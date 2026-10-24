@@ -8,11 +8,13 @@ import {
 import CMApp_htmlTemplate from "./CMApp.html?raw";
 import { brainCoral_generate, branchingCoral_generate } from "./reef";
 import { setupGenericLightingEnvironment } from "./lib/graphics";
+import type { ScenarioOnCloseCallback } from "../types";
 
 export class CMApp {
   private readonly TAG = "CMApp";
 
   private containerElement: HTMLDivElement;
+  private scenario_onClose: ScenarioOnCloseCallback;
 
   private rootElement!: HTMLDivElement;
   private bootOverlayElement!: HTMLDivElement;
@@ -29,11 +31,16 @@ export class CMApp {
   private timerId_loadingEffect?: number;
   private loadingDot_cnt: number = 0;
 
-  constructor(containerElement: HTMLDivElement | string) {
+  constructor(
+    containerElement: HTMLDivElement | string,
+    onClose: ScenarioOnCloseCallback,
+  ) {
     this.containerElement =
       typeof containerElement === "string"
         ? (document.querySelector(containerElement) as HTMLDivElement)
         : containerElement;
+
+    this.scenario_onClose = onClose;
   }
 
   async init() {
@@ -172,7 +179,7 @@ export class CMApp {
       x_size: 0.55,
       z_size: 0.6,
       height: 0.3,
-      seedHash: `${worldSeed}/coral/brain/1`
+      seedHash: `${worldSeed}/coral/brain/1`,
     });
     scene.add(brainCoral);
   }
