@@ -169,6 +169,9 @@ export class CMApp {
       root_pt: new THREE.Vector3(0.8, 0, 0.8),
       root_forwardVec: new THREE.Vector3(1, 0, 0),
       material: new THREE.MeshStandardMaterial({ color: "#425543" }),
+      x_size: 0.55,
+      z_size: 0.6,
+      height: 0.3,
       seedHash: `${worldSeed}/coral/brain/1`
     });
     scene.add(brainCoral);

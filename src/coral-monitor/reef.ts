@@ -917,38 +917,92 @@ export function brainCoral_generate(params: {
   seedHash: string;
 }) {
   const sphere_widthSegCnt = 16;
-  const sphere_heightSegCnt = 8;
+  const sphere_heightSegCnt = 16;
 
   // #region [sub]
   const deformSphere = (params: {
     sphere: THREE.SphereGeometry;
+    sphere_widthSegCnt: number;
+    sphere_heightSegCnt: number;
     randFn: RandomFunc;
   }) => {
-    const s = new THREE.Vector3(0.8, 1, 1.2);
-    sphere.scale(s.x, s.y, s.z);
+    const deformFactorConstraints = {
+      x: [0, 0],
+      y: [0, 0.3],
+      z: [0, 0.2],
+    };
+
+    const { sphere, sphere_widthSegCnt, sphere_heightSegCnt, randFn } = params;
 
     const attr_position = sphere.getAttribute("position");
 
-    let y_max = -Infinity;
+    let bounds = {
+      x: [Infinity, -Infinity],
+      y: [Infinity, -Infinity],
+      z: [Infinity, -Infinity],
+    };
+
     for (let i = 0; i < attr_position.count; i++) {
-      const y = attr_position.getY(i);
-      if (y > y_max) {
-        y_max = y;
+      const pt = {
+        x: attr_position.getX(i),
+        y: attr_position.getY(i),
+        z: attr_position.getZ(i),
+      };
+
+      for (const axis of ["x", "y", "z"] as const) {
+        const val = pt[axis];
+        if (val > bounds[axis][1]) {
+          bounds[axis][1] = val;
+        }
+        if (val < bounds[axis][0]) {
+          bounds[axis][0] = val;
+        }
       }
     }
 
+    const dict_posIdx_offsetVec: Record<
+      number,
+      { x: number; y: number; z: number }
+    > = {};
+
     for (let i = 0; i < attr_position.count; i++) {
-      const y = attr_position.getY(i);
-      const offset = Math.min(y, y_max - y);
-      attr_position.setY(
+      const pt = {
+        x: attr_position.getX(i),
+        y: attr_position.getY(i),
+        z: attr_position.getZ(i),
+      };
+
+      const i_canon = sphereGeometry_getCanonicalIndex({
         i,
-        y +
-          offset *
+        widthSegCnt: sphere_widthSegCnt,
+        heightSegCnt: sphere_heightSegCnt,
+      });
+      let offsetVec = dict_posIdx_offsetVec[i_canon];
+      if (offsetVec === undefined) {
+        offsetVec = { x: 0, y: 0, z: 0 };
+
+        for (const axis of ["x", "y", "z"] as const) {
+          let offset = Math.min(
+            pt[axis] - bounds[axis][0],
+            bounds[axis][1] - pt[axis],
+          );
+          offsetVec[axis] =
+            offset *
             randRange({
-              a: 0.2,
-              b: 0.5,
+              a: deformFactorConstraints[axis][0],
+              b: deformFactorConstraints[axis][1],
               randFn,
-            }),
+            });
+        }
+
+        dict_posIdx_offsetVec[i_canon] = offsetVec;
+      }
+
+      attr_position.setXYZ(
+        i,
+        pt.x + offsetVec.x,
+        pt.y + offsetVec.y,
+        pt.z + offsetVec.z,
       );
     }
     attr_position.needsUpdate = true;
@@ -959,8 +1013,8 @@ export function brainCoral_generate(params: {
     seedHash,
     material,
     root_pt,
-    x_size: x_radius,
-    z_size: z_radius,
+    x_size,
+    z_size,
     root_forwardVec,
     height,
   } = params;
@@ -976,14 +1030,15 @@ export function brainCoral_generate(params: {
     0,
     PI / 2,
   );
-  //sphere.
-  deformSphere({ sphere, randFn });
+  sphere.scale(x_size / 2, height, z_size / 2);
+  deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
 
   sphere.applyMatrix4(
     new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
   );
 
   const mesh = new THREE.Mesh(sphere, material);
+  return mesh;
   return meshWithWireframe(mesh);
 }
 
