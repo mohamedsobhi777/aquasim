@@ -6,7 +6,7 @@ import {
     waitAsync,
 } from "./lib/utils";
 
-import UIIApp_htmlTemplate from "./InfraApp.html?raw";
+import InfraApp_htmlTemplate from "./InfraApp.html?raw";
 import type { ScenarioOnCloseCallback } from "../types";
 
 export class InfraApp {
@@ -59,7 +59,7 @@ export class InfraApp {
     const { containerElement } = this;
 
     const rootElement =
-      htmlElement_createFromTemplate<HTMLDivElement>(UIIApp_htmlTemplate);
+      htmlElement_createFromTemplate<HTMLDivElement>(InfraApp_htmlTemplate);
     this.rootElement = rootElement;
 
     containerElement.appendChild(rootElement);
