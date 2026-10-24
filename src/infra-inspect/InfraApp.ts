@@ -6,11 +6,11 @@ import {
     waitAsync,
 } from "./lib/utils";
 
-import UIIApp_htmlTemplate from "./UIIApp.html?raw";
+import UIIApp_htmlTemplate from "./InfraApp.html?raw";
 import type { ScenarioOnCloseCallback } from "../types";
 
-export class UIIApp {
-  private readonly TAG = "UIIApp";
+export class InfraApp {
+  private readonly TAG = "InfraApp";
 
   private containerElement: HTMLDivElement;
   private backBtn!: HTMLDivElement;

@@ -3,7 +3,7 @@ import "./infra-inspect/style.css";
 import "./coral-monitor/style.css";
 
 import { CMApp } from "./coral-monitor/CMApp";
-import { UIIApp } from "./infra-inspect/UIIApp";
+import { InfraApp } from "./infra-inspect/InfraApp";
 
 class RootApp {
   private divIntroScreen: HTMLDivElement;
@@ -41,12 +41,12 @@ class RootApp {
 
     document.title = "Underwater Infrastructure Inspection";
 
-    const uiiApp = new UIIApp({
+    const infraApp = new InfraApp({
       containerElement: document.querySelector("#d3-app") as HTMLDivElement,
       onClose: this.scenario_afterClose.bind(this),
     });
 
-    await uiiApp.init();
+    await infraApp.init();
   }
 
   private async headerItem_crm_onClick() {
