@@ -6,7 +6,7 @@ import {
 } from "./lib/utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
-import { branchingCoral_generate } from "./reef";
+import { brainCoral_generate, branchingCoral_generate } from "./reef";
 import { setupGenericLightingEnvironment } from "./lib/graphics";
 
 export class CMApp {
@@ -154,7 +154,7 @@ export class CMApp {
 
     setupGenericLightingEnvironment(scene);
 
-    const coral = branchingCoral_generate({
+    const branchingCoral = branchingCoral_generate({
       root_pt: new THREE.Vector3(0, 0, 0),
       root_forwardVec: new THREE.Vector3(1, 0, 0),
       root_distToCeil: 1,
@@ -163,7 +163,15 @@ export class CMApp {
       material: new THREE.MeshStandardMaterial({ color: "#526362" }),
       seedHash: `${worldSeed}/coral/branching/5`,
     });
-    scene.add(coral);
+    scene.add(branchingCoral);
+
+    const brainCoral = brainCoral_generate({
+      root_pt: new THREE.Vector3(0.8, 0, 0.8),
+      root_forwardVec: new THREE.Vector3(1, 0, 0),
+      material: new THREE.MeshStandardMaterial({ color: "#425543" }),
+      seedHash: `${worldSeed}/coral/brain/1`
+    });
+    scene.add(brainCoral);
   }
 
   showBooting() {

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import seedrandom from "seedrandom";
 
-import { TAU, UP_DIR, DEG2RAD, ZERO_VEC } from "./const";
+import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI } from "./const";
 import type { RandomFunc } from "./types";
 
 import weightedSelect from "./lib-external/weighted";
@@ -12,6 +12,7 @@ import {
   randRange,
 } from "./lib/math";
 import { xyz_toCommaDelimStr } from "./lib/utils";
+import { meshWithWireframe } from "./lib/graphics";
 
 class GeometryMerger {
   listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
@@ -860,7 +861,7 @@ function branchTube_createThorns(params: {
   // Sink amount:
   //  - tilted base disc lifts one edge by thorn_radius * cos(tilt)
   //  - faceted tube lies slightly inside the ideal cylinder between vertices
-  const facetInset = tube_radius * (1 - Math.cos(Math.PI / tube_radialSegCnt));
+  const facetInset = tube_radius * (1 - Math.cos(PI / tube_radialSegCnt));
   const sink =
     EMBED_FACTOR * thorn_radius * Math.cos(thorn_tiltAngle_rad) + facetInset;
 
@@ -904,4 +905,105 @@ function branchTube_createThorns(params: {
   }
 
   return { count: size, geom, listMat4 };
+}
+
+export function brainCoral_generate(params: {
+  root_pt: THREE.Vector3;
+  root_forwardVec: THREE.Vector3;
+  x_size: number;
+  z_size: number;
+  height: number;
+  material: THREE.Material;
+  seedHash: string;
+}) {
+  const sphere_widthSegCnt = 16;
+  const sphere_heightSegCnt = 8;
+
+  // #region [sub]
+  const deformSphere = (params: {
+    sphere: THREE.SphereGeometry;
+    randFn: RandomFunc;
+  }) => {
+    const s = new THREE.Vector3(0.8, 1, 1.2);
+    sphere.scale(s.x, s.y, s.z);
+
+    const attr_position = sphere.getAttribute("position");
+
+    let y_max = -Infinity;
+    for (let i = 0; i < attr_position.count; i++) {
+      const y = attr_position.getY(i);
+      if (y > y_max) {
+        y_max = y;
+      }
+    }
+
+    for (let i = 0; i < attr_position.count; i++) {
+      const y = attr_position.getY(i);
+      const offset = Math.min(y, y_max - y);
+      attr_position.setY(
+        i,
+        y +
+          offset *
+            randRange({
+              a: 0.2,
+              b: 0.5,
+              randFn,
+            }),
+      );
+    }
+    attr_position.needsUpdate = true;
+  };
+  // #endregion [sub]
+
+  const {
+    seedHash,
+    material,
+    root_pt,
+    x_size: x_radius,
+    z_size: z_radius,
+    root_forwardVec,
+    height,
+  } = params;
+
+  const randFn = seedrandom(seedHash);
+
+  const sphere = new THREE.SphereGeometry(
+    1,
+    sphere_widthSegCnt,
+    sphere_heightSegCnt,
+    0,
+    TAU,
+    0,
+    PI / 2,
+  );
+  //sphere.
+  deformSphere({ sphere, randFn });
+
+  sphere.applyMatrix4(
+    new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
+  );
+
+  const mesh = new THREE.Mesh(sphere, material);
+  return meshWithWireframe(mesh);
+}
+
+function sphereGeometry_getCanonicalIndex(params: {
+  i: number;
+  widthSegCnt: number;
+  heightSegCnt: number;
+}): number {
+  const { i, widthSegCnt, heightSegCnt } = params;
+  const rowSize = widthSegCnt + 1;
+  const iy = Math.floor(i / rowSize);
+  const ix = i % rowSize;
+
+  if (iy === 0 || iy === heightSegCnt) {
+    // pole: first vertex of the row
+    return iy * rowSize;
+  }
+  if (ix === widthSegCnt) {
+    // seam: same as ix = 0
+    return iy * rowSize;
+  }
+  return i;
 }

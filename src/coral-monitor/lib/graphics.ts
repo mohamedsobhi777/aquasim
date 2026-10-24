@@ -53,3 +53,14 @@ export function object3D_countTriangle(object: THREE.Object3D): number {
 
   return Math.floor(total);
 }
+
+export function meshWithWireframe(mesh: THREE.Mesh) {
+  const group = new THREE.Group();
+  const wireframeMaterial = new THREE.MeshBasicMaterial({
+    wireframe: true,
+  });
+  const wireframeMesh = new THREE.Mesh(mesh.geometry, wireframeMaterial);
+  group.add(mesh);
+  group.add(wireframeMesh);
+  return group;
+}
