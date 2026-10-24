@@ -1056,7 +1056,7 @@ export function brainCoral_generate(params: {
     // The following settings are based on experiment,
     // It simulates the brain pattern on the coral surface.
     noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-    noise.SetFrequency(0.03);
+    noise.SetFrequency(0.02);
     noise.SetFractalType(FastNoiseLite.FractalType.PingPong);
     noise.SetFractalPingPongStrength(2.11);
 
@@ -1064,9 +1064,13 @@ export function brainCoral_generate(params: {
     let img_height = imgMinSizeConstraint;
 
     if (sphere_xSize > sphere_zSize) {
-      img_width = Math.ceil((sphere_xSize / sphere_zSize) * imgMinSizeConstraint);
+      img_width = Math.ceil(
+        (sphere_xSize / sphere_zSize) * imgMinSizeConstraint,
+      );
     } else if (sphere_zSize > sphere_xSize) {
-      img_height = Math.ceil((sphere_zSize / sphere_xSize) * imgMinSizeConstraint);
+      img_height = Math.ceil(
+        (sphere_zSize / sphere_xSize) * imgMinSizeConstraint,
+      );
     }
 
     const imgData = new Uint8Array(img_height * img_width * 4);
@@ -1126,6 +1130,7 @@ export function brainCoral_generate(params: {
   );
   sphere.scale(x_size / 2, height, z_size / 2);
 
+  deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
   setupUV({ sphere });
   updateMaterial({
     material,
@@ -1134,15 +1139,12 @@ export function brainCoral_generate(params: {
     sphere_zSize: z_size,
   });
 
-  deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
-
   sphere.applyMatrix4(
     new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
   );
 
   const mesh = new THREE.Mesh(sphere, material);
   return mesh;
-  return meshWithWireframe(mesh);
 }
 
 function sphereGeometry_getCanonicalIndex(params: {
