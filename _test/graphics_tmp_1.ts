@@ -3,6 +3,39 @@ import FastNoiseLite from "./lib-external/fastnoise-lite";
 import * as THREE from "three";
 import _ from "lodash";
 
+function brainColor() {
+  const setupUV = (params: { sphere: THREE.SphereGeometry }) => {
+    const { sphere } = params;
+
+    const attr_position = sphere.attributes.position;
+    const attr_uv = sphere.attributes.uv;
+
+    for (let i = 0; i < attr_position.count; i++) {
+      const x = attr_position.getX(i);
+      const y = attr_position.getY(i);
+      const z = attr_position.getZ(i);
+
+      const horizontalDistance = Math.hypot(x, z);
+      const theta = Math.atan2(horizontalDistance, y);
+
+      // Pole -> 0; hemisphere rim -> 0.5.
+      const imageRadius = theta / PI;
+
+      if (horizontalDistance < 1e-8) {
+        attr_uv.setXY(i, 0.5, 0.5);
+      } else {
+        attr_uv.setXY(
+          i,
+          0.5 + (imageRadius * x) / horizontalDistance,
+          0.5 - (imageRadius * z) / horizontalDistance,
+        );
+      }
+    }
+
+    attr_uv.needsUpdate = true;
+  };
+}
+
 const TAU = Math.PI * 2;
 const SINGLE_GEOMETRY_MAX_VERTEX = 65536;
 const UP = new THREE.Vector3(0, 1, 0);

@@ -917,8 +917,8 @@ export function brainCoral_generate(params: {
   material: THREE.MeshStandardMaterial;
   seedHash: string;
 }) {
-  const sphere_widthSegCnt = 16;
-  const sphere_heightSegCnt = 16;
+  const sphere_widthSegCnt = 128;
+  const sphere_heightSegCnt = 128;
 
   // #region [sub]
   const deformSphere = (params: {
@@ -1009,56 +1009,24 @@ export function brainCoral_generate(params: {
     attr_position.needsUpdate = true;
   };
 
-  const setupUV = (params: { sphere: THREE.SphereGeometry }) => {
-    const { sphere } = params;
-
-    const attr_position = sphere.attributes.position;
-    const attr_uv = sphere.attributes.uv;
-
-    for (let i = 0; i < attr_position.count; i++) {
-      const x = attr_position.getX(i);
-      const y = attr_position.getY(i);
-      const z = attr_position.getZ(i);
-
-      const horizontalDistance = Math.hypot(x, z);
-      const theta = Math.atan2(horizontalDistance, y);
-
-      // Pole -> 0; hemisphere rim -> 0.5.
-      const imageRadius = theta / PI;
-
-      if (horizontalDistance < 1e-8) {
-        attr_uv.setXY(i, 0.5, 0.5);
-      } else {
-        attr_uv.setXY(
-          i,
-          0.5 + (imageRadius * x) / horizontalDistance,
-          0.5 - (imageRadius * z) / horizontalDistance,
-        );
-      }
-    }
-
-    attr_uv.needsUpdate = true;
-  };
-
-  const updateMaterial = (params: {
+  const brainPatternTexture_generate = (params: {
     sphere_xSize: number;
     sphere_zSize: number;
-    material: THREE.MeshStandardMaterial;
     seedHash: string;
   }) => {
-    const imgMinSizeConstraint = 800;
+    const imgMinSizeConstraint = 512;
 
-    const { material, seedHash, sphere_xSize, sphere_zSize } = params;
+    const { seedHash, sphere_xSize, sphere_zSize } = params;
 
     const seed = xxh().update(seedHash).update("texture").digest().toNumber();
-    const noise = new FastNoiseLite(seed);
+    const noiseGen = new FastNoiseLite(seed);
 
     // The following settings are based on experiment,
     // It simulates the brain pattern on the coral surface.
-    noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-    noise.SetFrequency(0.02);
-    noise.SetFractalType(FastNoiseLite.FractalType.PingPong);
-    noise.SetFractalPingPongStrength(2.11);
+    noiseGen.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+    noiseGen.SetFrequency(0.02);
+    noiseGen.SetFractalType(FastNoiseLite.FractalType.PingPong);
+    noiseGen.SetFractalPingPongStrength(2.11);
 
     let img_width = imgMinSizeConstraint;
     let img_height = imgMinSizeConstraint;
@@ -1073,37 +1041,20 @@ export function brainCoral_generate(params: {
       );
     }
 
-    const imgData = new Uint8Array(img_height * img_width * 4);
-    const materialColor = material.color;
+    const imgData = new Uint8Array(img_height * img_width);
 
     for (let y = 0; y < img_height; y++) {
       for (let x = 0; x < img_width; x++) {
-        let value = noise.GetNoise(x, y);
-        if (value < 0) {
-          value = 0;
-        } else {
-          value = 1;
-        }
-        const idx = (y * img_width + x) * 4;
-        imgData[idx] = Math.floor(materialColor.r * value * 255);
-        imgData[idx + 1] = Math.floor(materialColor.g * value * 255);
-        imgData[idx + 2] = Math.floor(materialColor.b * value * 255);
-        imgData[idx + 3] = 255;
+        let noiseVal = noiseGen.GetNoise(x, y);
+
+        const idx = y * img_width + x;
+        const color = Math.floor((noiseVal + 1) * 0.5 * 255);
+        imgData[idx] = color;
       }
     }
 
-    /** For real color, must use RGBA format. RGB is not accepted by GPU somehow  */
-    const texture = new THREE.DataTexture(
-      imgData,
-      img_width,
-      img_height,
-      THREE.RGBAFormat,
-      THREE.UnsignedByteType,
-    );
-    texture.needsUpdate = true;
-
-    material.map = texture;
-    material.needsUpdate = true;
+    const textureData = new THREE.DataArrayTexture(imgData, img_width, img_height, 1);
+    return textureData;
   };
   // #endregion [sub]
 
@@ -1130,20 +1081,20 @@ export function brainCoral_generate(params: {
   );
   sphere.scale(x_size / 2, height, z_size / 2);
 
-  deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
-  setupUV({ sphere });
-  updateMaterial({
-    material,
-    seedHash,
+  const brainPatternTextureData = brainPatternTexture_generate({
     sphere_xSize: x_size,
     sphere_zSize: z_size,
+    seedHash,
   });
+
+  deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
 
   sphere.applyMatrix4(
     new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
   );
 
   const mesh = new THREE.Mesh(sphere, material);
+  // return meshWithWireframe(mesh);
   return mesh;
 }
 
