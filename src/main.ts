@@ -74,17 +74,17 @@ class RootApp {
 }
 
 async function main() {
-  const rootApp = new RootApp();
+  // const rootApp = new RootApp();
 
-  // document.querySelector("#intro-screen")!.style.display = "none";
+  (document.querySelector("#intro-screen") as HTMLDivElement).style.display =
+    "none";
 
-  // const cmApp = new CMApp({
-  //   containerElement: document.querySelector("#d3-app") as HTMLDivElement,
-  //   onClose: () => {}
-  // });
-  // (window as any).cmApp = cmApp;
+  const cmApp = new CMApp({
+    containerElement: document.querySelector("#d3-app") as HTMLDivElement,
+  });
+  (window as any).cmApp = cmApp;
 
-  // await cmApp.init();
+  await cmApp.init();
 }
 
 main();
