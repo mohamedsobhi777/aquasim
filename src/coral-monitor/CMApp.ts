@@ -157,11 +157,11 @@ export class CMApp {
     const coral = branchingCoral_generate({
       root_pt: new THREE.Vector3(0, 0, 0),
       root_forwardVec: new THREE.Vector3(1, 0, 0),
-      root_ceilingHeight: 0.9,
+      root_distToCeil: 1.2,
       root_radius: 0.03,
       growthLevelCnt: 3,
       material: new THREE.MeshStandardMaterial({ color: "#526362" }),
-      seedHash: `${Math.random()}`,
+      seedHash: `${worldSeed}/coral/branching/6`,
     });
     scene.add(coral);
   }

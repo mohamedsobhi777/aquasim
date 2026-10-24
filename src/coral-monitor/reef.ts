@@ -69,7 +69,7 @@ interface CoralBranchTube {
 export function branchingCoral_generate(params: {
   root_pt: THREE.Vector3;
   root_forwardVec: THREE.Vector3;
-  root_ceilingHeight: number;
+  root_distToCeil: number;
   root_radius: number;
   growthLevelCnt: number;
   material: THREE.Material;
@@ -237,11 +237,11 @@ export function branchingCoral_generate(params: {
   const rootBranchTube_generate = (params: {
     root_pt: THREE.Vector3;
     forward_vec: THREE.Vector3;
-    ceilingHeight: number;
+    root_distToCeil: number;
     radius: number;
     randFn: RandomFunc;
   }) => {
-    const { root_pt, forward_vec, ceilingHeight, radius, randFn } = params;
+    const { root_pt, forward_vec, root_distToCeil, radius, randFn } = params;
 
     const forward_upAngle_rad = forward_vec.angleTo(UP_DIR);
     const ceil_upAngle_rad = randRange({
@@ -262,10 +262,10 @@ export function branchingCoral_generate(params: {
 
     const branch_up_dir = n_dir.clone().cross(forward_vec).normalize();
     const ceilToBranchUp_angle_rad = ceil_dir.angleTo(branch_up_dir);
-    const ceil_distToRoot = ceilingHeight / Math.cos(ceilToBranchUp_angle_rad);
-    const ceil_pt = root_pt.clone().addScaledVector(ceil_dir, ceil_distToRoot);
+    const ceil_pt = root_pt.clone().addScaledVector(ceil_dir, root_distToCeil);
 
     let rand_rot = TAU * randFn();
+    rand_rot = 0;
 
     const branch = branchTube_generate({
       forward_vec: forward_vec.clone().applyAxisAngle(UP_DIR, rand_rot),
@@ -602,7 +602,7 @@ export function branchingCoral_generate(params: {
     root_forwardVec,
     root_radius,
     material,
-    root_ceilingHeight,
+    root_distToCeil,
     growthLevelCnt,
   } = params;
   const randFn = seedrandom(seedHash);
@@ -612,7 +612,7 @@ export function branchingCoral_generate(params: {
   const rootBranchTube = rootBranchTube_generate({
     root_pt,
     forward_vec: root_forwardVec,
-    ceilingHeight: root_ceilingHeight,
+    root_distToCeil,
     radius: root_radius,
     randFn,
   });
