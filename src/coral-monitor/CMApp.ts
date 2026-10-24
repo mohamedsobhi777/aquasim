@@ -3,6 +3,7 @@ import { OrbitControls } from "three/examples/jsm/Addons.js";
 import {
   htmlElement_createFromTemplate,
   htmlElement_updateStyle,
+  waitAsync,
 } from "./lib/utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
@@ -14,7 +15,8 @@ export class CMApp {
   private readonly TAG = "CMApp";
 
   private containerElement: HTMLDivElement;
-  private scenario_onClose: ScenarioOnCloseCallback;
+  private backBtn!: HTMLDivElement;
+  private scenario_onClose: ScenarioOnCloseCallback | undefined = undefined;
 
   private rootElement!: HTMLDivElement;
   private bootOverlayElement!: HTMLDivElement;
@@ -31,10 +33,12 @@ export class CMApp {
   private timerId_loadingEffect?: number;
   private loadingDot_cnt: number = 0;
 
-  constructor(
-    containerElement: HTMLDivElement | string,
-    onClose: ScenarioOnCloseCallback,
-  ) {
+  constructor(params: {
+    containerElement: HTMLDivElement | string;
+    onClose?: ScenarioOnCloseCallback;
+  }) {
+    const { containerElement, onClose } = params;
+
     this.containerElement =
       typeof containerElement === "string"
         ? (document.querySelector(containerElement) as HTMLDivElement)
@@ -61,6 +65,17 @@ export class CMApp {
     this.rootElement = rootElement;
 
     containerElement.appendChild(rootElement);
+
+    const backBtn = rootElement.querySelector(".back-btn") as HTMLDivElement;
+    this.backBtn = backBtn;
+
+    if (this.scenario_onClose) {
+      backBtn.addEventListener("click", this.backBtn_onClick.bind(this));
+    }
+
+    htmlElement_updateStyle(backBtn, {
+      display: "none",
+    });
 
     const bootOverlayElement = rootElement.querySelector(
       ".boot-overlay",
@@ -94,7 +109,7 @@ export class CMApp {
 
     this.camera = camera;
 
-    const controls = new OrbitControls(camera, this.rootElement);
+    const controls = new OrbitControls(camera, this.renderer.domElement);
     this.controls = controls;
 
     this.listenerStore["window_onResize"] = this.window_onResize.bind(this);
@@ -110,8 +125,15 @@ export class CMApp {
 
     this.dev_resetCamPosition();
 
-    // await waitAsync(2000);
+    // If not wait here, "transitionend" event will not be triggered inside hideBooting()
+    await waitAsync(10);
     this.hideBooting();
+
+    if (this.scenario_onClose) {
+      htmlElement_updateStyle(backBtn, {
+        display: "flex",
+      });
+    }
   }
 
   dispose() {
@@ -124,6 +146,11 @@ export class CMApp {
       "resize",
       this.listenerStore["window_onResize"] as EventListener,
     );
+
+    this.scene.dispose();
+    this.renderer.dispose();
+
+    this.containerElement.removeChild(this.rootElement);
   }
 
   render(dt: number) {
@@ -263,6 +290,22 @@ export class CMApp {
     }
 
     this.resize(newWidth, newHeight);
+  }
+
+  backBtn_onClick() {
+    const FN_TAG = `backBtn_onClick`;
+    const FN_DEBUG_TAG = `[${this.TAG}::${FN_TAG}]`;
+
+    console.log(`${FN_DEBUG_TAG}. Trigger`);
+
+    const { scenario_onClose } = this;
+    if (!scenario_onClose) {
+      return;
+    }
+
+    this.dispose();
+
+    scenario_onClose();
   }
   // @endregion [events]
 

@@ -9,9 +9,33 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #000000;
+  background-color: #091d2e;
   display: none;
   flex-direction: column;
   justify-content: center;
   color: white;
+}
+
+.cm-app.back-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  cursor: pointer;
+  background-color: #091d2e;
+  color: white;
+  font-size: 1.5rem;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cm-app.back-btn:hover {
+  background-color: #1e68a8;
+}
+
+.cm-app.back-btn:active {
+  background-color: #13426b;
 }

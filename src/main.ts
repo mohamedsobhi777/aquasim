@@ -29,6 +29,8 @@ class RootApp {
       "click",
       this.headerItem_crm_onClick.bind(this),
     );
+
+    document.title = "AquaSim";
   }
 
   // #region [events]
@@ -37,7 +39,12 @@ class RootApp {
   private async headerItem_crm_onClick() {
     this.scenario_beforeOpen();
 
-    const cmApp = new CMApp("#d3-app", this.scenario_afterClose.bind(this));
+    document.title = "Coral Reef Monitoring";
+
+    const cmApp = new CMApp({
+      containerElement: document.querySelector("#d3-app") as HTMLDivElement,
+      onClose: this.scenario_afterClose.bind(this),
+    });
     (window as any).cmApp = cmApp;
 
     await cmApp.init();
@@ -49,12 +56,23 @@ class RootApp {
 
   private scenario_afterClose() {
     this.divIntroScreen.style.display = "flex";
+    document.title = "Coral Reef Monitoring";
   }
   // #endregion [events]
 }
 
 async function main() {
   const rootApp = new RootApp();
+
+  // document.querySelector("#intro-screen")!.style.display = "none";
+
+  // const cmApp = new CMApp({
+  //   containerElement: document.querySelector("#d3-app") as HTMLDivElement,
+  //   onClose: () => {}
+  // });
+  // (window as any).cmApp = cmApp;
+
+  // await cmApp.init();
 }
 
 main();
