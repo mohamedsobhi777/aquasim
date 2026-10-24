@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import seedrandom from "seedrandom";
 
-import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI } from "./const";
+import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI, xxh } from "./const";
 import type { RandomFunc } from "./types";
 
 import weightedSelect from "./lib-external/weighted";
@@ -13,6 +13,7 @@ import {
 } from "./lib/math";
 import { xyz_toCommaDelimStr } from "./lib/utils";
 import { meshWithWireframe } from "./lib/graphics";
+import FastNoiseLite from "./lib-external/fastnoise-lite";
 
 class GeometryMerger {
   listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
@@ -913,7 +914,7 @@ export function brainCoral_generate(params: {
   x_size: number;
   z_size: number;
   height: number;
-  material: THREE.Material;
+  material: THREE.MeshStandardMaterial;
   seedHash: string;
 }) {
   const sphere_widthSegCnt = 16;
@@ -1007,6 +1008,49 @@ export function brainCoral_generate(params: {
     }
     attr_position.needsUpdate = true;
   };
+
+  const updateMaterial = (params: {
+    material: THREE.MeshStandardMaterial;
+    seedHash: string;
+  }) => {
+    const { material, seedHash } = params;
+
+    const seed = xxh().update(seedHash).update("texture").digest().toNumber();
+    const noise = new FastNoiseLite(seed);
+    noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+    noise.SetFrequency(0.02);
+    noise.SetFractalType(FastNoiseLite.FractalType.PingPong);
+    noise.SetFractalPingPongStrength(2.11);
+
+    const imgSize = 512;
+    const imgData = new Uint8Array(imgSize * imgSize);
+
+    for (let y = 0; y < imgSize; y++) {
+      for (let x = 0; x < imgSize; x++) {
+        let value = noise.GetNoise(x, y);
+        if (value < 0) {
+          value = -1;
+        } else {
+          value = 1;
+        }
+
+        imgData[y * imgSize + x] = Math.floor((value + 1) * 0.5 * 255);
+      }
+    }
+
+    const texture = new THREE.DataTexture(
+      imgData,
+      imgSize,
+      imgSize,
+      THREE.RedFormat,
+      THREE.UnsignedByteType,
+    );
+    // texture.colorSpace = THREE.NoColorSpace;
+    texture.needsUpdate = true;
+
+    material.map = texture;
+    material.needsUpdate = true;
+  };
   // #endregion [sub]
 
   const {
@@ -1036,6 +1080,8 @@ export function brainCoral_generate(params: {
   sphere.applyMatrix4(
     new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
   );
+
+  updateMaterial({ material, seedHash });
 
   const mesh = new THREE.Mesh(sphere, material);
   return mesh;
