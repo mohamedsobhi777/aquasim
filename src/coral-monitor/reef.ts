@@ -60,10 +60,10 @@ interface CoralBranchTube {
 /**
  * @param {THREE.Vector3} params.root_pt
  *    The root point of the coral
- * @param {THREE.Vector3} params.rootNormalVec
- *    The normal vector of the surface where the coral is rooted
- * @param {number} params.rootCeilingHeight
- *    The maximum height from the surface to the tip of the root branch of the coral
+ * @param {THREE.Vector3} params.root_forwardVec
+ *    The forward vector of the root of the coral. It represents the "surface" where the coral is attached
+ * @param {number} params.root_distToCeil
+ *    The distance from the root to the tip of the root branch
  *
  */
 export function branchingCoral_generate(params: {
