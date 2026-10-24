@@ -85,9 +85,12 @@ export function branchingCoral_generate(params: {
   const thorn_spacing = 0.06;
   const thorn_tiltAngle_rad = 20 * DEG2RAD;
 
-  const branch_minLengthHaveChild = 0;
+  const branch_minLengthHaveChild = 0.5;
   const branch_upDirAngleConstraint_deg = 75;
   const branchingPoint_maxCnt = 3;
+
+  /** B[k] means that: If branch's curve length is >= B[k], it should have min k branching points */
+  const branchingPoint_minCntByCurveLength = [0, 0.6, 1, 1.2];
 
   // @region [sub]
   const branchTube_cap_createGeom = (params: {
@@ -280,6 +283,7 @@ export function branchingCoral_generate(params: {
    * See prob.gbb file to understand about the choice of function for computing selection weight
    */
   const branchingPointCnt_generate = (params: {
+    curCurveLength: number;
     curGrowthLevel: number;
     growthLevelCnt: number;
     randFn: RandomFunc;
@@ -288,7 +292,7 @@ export function branchingCoral_generate(params: {
     const expoFn_yDownShift = 0.8;
     const weightDecayFactor = 2;
 
-    const { curGrowthLevel, growthLevelCnt, randFn } = params;
+    const { curCurveLength, curGrowthLevel, growthLevelCnt, randFn } = params;
 
     const listChoice: Array<number> = [];
     const listWeight: Array<number> = [];
@@ -319,22 +323,23 @@ export function branchingCoral_generate(params: {
       listWeight[i] /= weightSum;
     }
 
-    // console.log(`listChoice: ${listChoice}, listWeight: ${listWeight}`);
-
-    if (listChoice.length === 0) {
-      return 0;
-    }
+    let choice = 0;
 
     if (listChoice.length === 1) {
-      return listChoice[0];
+      choice = listChoice[0];
+    } else if (listChoice.length != 0) {
+      choice = weightedSelect(listChoice, listWeight, {
+        rand: randFn,
+        normal: true,
+      });
     }
 
-    const choice = weightedSelect(listChoice, listWeight, {
-      rand: randFn,
-      normal: true,
-    });
-
-    // console.log(`choice=`, choice);
+    for (let k = branchingPoint_maxCnt; k >= 0; k--) {
+      if (curCurveLength >= branchingPoint_minCntByCurveLength[k]) {
+        choice = Math.max(choice, k);
+        break;
+      }
+    }
 
     return choice;
   };
@@ -453,17 +458,17 @@ export function branchingCoral_generate(params: {
     const parent_NDir = parent_forwardDir.clone().cross(UP_DIR).normalize();
     const parent_rightDir = UP_DIR.clone().cross(parent_NDir).normalize();
 
-    console.log(
-      `branch[${parent.id}][loc=${location}] `,
-      ` f_dir=`,
-      xyz_toCommaDelimStr(parent_forwardDir),
-      ` n_dir=`,
-      xyz_toCommaDelimStr(parent_NDir),
-      ` r_dir=`,
-      xyz_toCommaDelimStr(parent_rightDir),
-      ` root_pt=`,
-      xyz_toCommaDelimStr(branch_root_pt),
-    );
+    // console.log(
+    //   `branch[${parent.id}][loc=${location}] `,
+    //   ` f_dir=`,
+    //   xyz_toCommaDelimStr(parent_forwardDir),
+    //   ` n_dir=`,
+    //   xyz_toCommaDelimStr(parent_NDir),
+    //   ` r_dir=`,
+    //   xyz_toCommaDelimStr(parent_rightDir),
+    //   ` root_pt=`,
+    //   xyz_toCommaDelimStr(branch_root_pt),
+    // );
 
     let branch_randRot =
       randRange({
@@ -485,15 +490,15 @@ export function branchingCoral_generate(params: {
         .multiplyScalar(ceil_distToRoot)
         .add(branch_root_pt);
 
-      console.log(
-        `branch[${branch_id}]`,
-        ` upAngle=`,
-        branch_listUpDirAngle_deg[i].toFixed(3),
-        ` forward_upAngle=`,
-        (parent_forwardDir.angleTo(UP_DIR) / DEG2RAD).toFixed(3),
-        ` ceilingHeight=`,
-        ceilingHeight.toFixed(3),
-      );
+      // console.log(
+      //   `branch[${branch_id}]`,
+      //   ` upAngle=`,
+      //   branch_listUpDirAngle_deg[i].toFixed(3),
+      //   ` forward_upAngle=`,
+      //   (parent_forwardDir.angleTo(UP_DIR) / DEG2RAD).toFixed(3),
+      //   ` ceilingHeight=`,
+      //   ceilingHeight.toFixed(3),
+      // );
 
       ceil_pt
         .sub(branch_root_pt)
@@ -553,13 +558,16 @@ export function branchingCoral_generate(params: {
         continue;
       }
 
-      if (curBranch.curve.getLength() < branch_minLengthHaveChild) {
+      const curBranch_curveLength = curBranch.curve.getLength();
+
+      if (curBranch_curveLength < branch_minLengthHaveChild) {
         continue;
       }
 
       // console.log(`branchingPointCnt[${curBranch.id}]`);
 
       const branchingPointCnt = branchingPointCnt_generate({
+        curCurveLength: curBranch_curveLength,
         curGrowthLevel,
         growthLevelCnt,
         randFn,
