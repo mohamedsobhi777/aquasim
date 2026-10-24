@@ -158,8 +158,8 @@ export class CMApp {
       root_pt: new THREE.Vector3(0, 0, 0),
       root_forwardVec: new THREE.Vector3(1, 0, 0),
       root_ceilingHeight: 1.5,
-      root_radius: 0.06,
-      growthLevelCnt: 2,
+      root_radius: 0.03,
+      growthLevelCnt: 3,
       material: new THREE.MeshStandardMaterial({ color: "#526362" }),
       seedHash: "",
     });

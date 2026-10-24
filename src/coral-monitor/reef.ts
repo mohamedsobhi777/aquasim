@@ -53,6 +53,8 @@ interface CoralBranchTube {
   tube_geom: THREE.TubeGeometry;
   tube_radialSegCnt: number;
   tube_radius: number;
+
+  id: string;
 }
 
 /**
@@ -146,6 +148,7 @@ export function branchingCoral_generate(params: {
     ceil_pt: THREE.Vector3;
     radius: number;
     randFn: RandomFunc;
+    id?: string;
   }): CoralBranchTube => {
     const originCpt_vertSectionConstraints_ratio = [0.1, 0.9];
     const ceilCpt_horizSectionConstraints_ratio = [0.1, 0.5];
@@ -224,6 +227,7 @@ export function branchingCoral_generate(params: {
       tube_geom: tube_geom,
       tube_radialSegCnt: tube_radialSegCnt,
       tube_radius: radius,
+      id: params.id ?? "",
     };
   };
 
@@ -266,6 +270,7 @@ export function branchingCoral_generate(params: {
       ceil_pt: ceil_pt.applyAxisAngle(UP_DIR, rand_rot),
       radius,
       randFn,
+      id: "0",
     });
 
     return branch;
@@ -279,7 +284,7 @@ export function branchingCoral_generate(params: {
     growthLevelCnt: number;
     randFn: RandomFunc;
   }) => {
-    const expoFn_base = 1.383;
+    const expoFn_base = 2.67;
     const expoFn_yDownShift = 0.8;
     const weightDecayFactor = 2;
 
@@ -289,6 +294,7 @@ export function branchingCoral_generate(params: {
     const listWeight: Array<number> = [];
 
     const d = branchingPoint_maxCnt / growthLevelCnt;
+    let weightSum = 0;
 
     for (let x = 0; x <= branchingPoint_maxCnt; x++) {
       const x1 = x - (curGrowthLevel - growthLevelCnt) * d;
@@ -306,7 +312,14 @@ export function branchingCoral_generate(params: {
 
       listChoice.push(x);
       listWeight.push(w);
+      weightSum += w;
     }
+
+    for (let i = 0; i < listWeight.length; i++) {
+      listWeight[i] /= weightSum;
+    }
+
+    // console.log(`listChoice: ${listChoice}, listWeight: ${listWeight}`);
 
     if (listChoice.length === 0) {
       return 0;
@@ -316,7 +329,14 @@ export function branchingCoral_generate(params: {
       return listChoice[0];
     }
 
-    return weightedSelect(listChoice, listWeight, { rand: randFn });
+    const choice = weightedSelect(listChoice, listWeight, {
+      rand: randFn,
+      normal: true,
+    });
+
+    // console.log(`choice=`, choice);
+
+    return choice;
   };
 
   const branchingLocation_generate = (params: {
@@ -344,6 +364,7 @@ export function branchingCoral_generate(params: {
   const branch_generateOnParent = (params: {
     parent: CoralBranchTube;
     parent_growthLevel: number;
+    locationIdx: number;
     location: number;
     queue: Array<growCoral_QueueItem>;
     randFn: RandomFunc;
@@ -351,10 +372,11 @@ export function branchingCoral_generate(params: {
     const branch_angularDistConstraints_deg = [20, 80];
     const branch_angularDeviationConstraint_deg = 150;
 
-    const branch_ceilingHeightMin = 0.05;
-    const branch_ceilAboveParentConstraint = 0.1;
+    const branch_ceilingHeightMin = 0.1;
+    const branch_ceilDeviationFromParentConstraints = [-0.3, 0.1];
 
-    const { parent, parent_growthLevel, location, queue, randFn } = params;
+    const { parent, parent_growthLevel, locationIdx, location, queue, randFn } =
+      params;
 
     const branch_growthLevel = parent_growthLevel - 1;
 
@@ -396,36 +418,43 @@ export function branchingCoral_generate(params: {
       branch_root_pt,
       UP_DIR,
     );
-    const branch_ceilingHeightMax =
+    const branch_ceilingHeight_upperBound =
       parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) +
-      branch_ceilAboveParentConstraint;
+      branch_ceilDeviationFromParentConstraints[1];
 
-    console.log(
-      `branch[${location}] `,
-      `parent_tip_pt=`,
-      xyz_toCommaDelimStr(parent_tip_pt),
-      ` parent_tipOnUp_pt=`,
-      xyz_toCommaDelimStr(parent_tipOnUp_pt),
-    );
+    let branch_ceilingHeight_lowerBound =
+      parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) +
+      branch_ceilDeviationFromParentConstraints[0];
+    if (branch_ceilingHeight_lowerBound <= 0) {
+      branch_ceilingHeight_lowerBound = branch_ceilingHeightMin;
+    }
+
+    // console.log(
+    //   `branch[${parent.id}] `,
+    //   `parent_tip_pt=`,
+    //   xyz_toCommaDelimStr(parent_tip_pt),
+    //   ` parent_tipOnUp_pt=`,
+    //   xyz_toCommaDelimStr(parent_tipOnUp_pt),
+    // );
 
     const branch_listCeilingHeight: Array<number> = [];
 
     for (let i = 0; i < branch_listUpDirAngle_deg.length; i++) {
       branch_listCeilingHeight.push(
         randRange({
-          a: branch_ceilingHeightMin,
-          b: branch_ceilingHeightMax,
+          a: branch_ceilingHeight_lowerBound,
+          b: branch_ceilingHeight_upperBound,
           randFn: randFn,
         }),
       );
     }
 
     const parent_forwardDir = parent.curve.getTangent(location);
-    const parent_NDir = parent_forwardDir.clone().cross(UP_DIR);
-    const parent_rightDir = UP_DIR.clone().cross(parent_NDir);
+    const parent_NDir = parent_forwardDir.clone().cross(UP_DIR).normalize();
+    const parent_rightDir = UP_DIR.clone().cross(parent_NDir).normalize();
 
     console.log(
-      `branch[loc=${location}] `,
+      `branch[${parent.id}][loc=${location}] `,
       ` f_dir=`,
       xyz_toCommaDelimStr(parent_forwardDir),
       ` n_dir=`,
@@ -444,7 +473,10 @@ export function branchingCoral_generate(params: {
       }) * DEG2RAD;
 
     for (let i = 0; i < branch_listUpDirAngle_deg.length; i++) {
-      const upAngle_rad = branch_listUpDirAngle_deg[i] * DEG2RAD;
+      const branch_id = `${parent.id}-${locationIdx},${i}`;
+
+      let upAngle_rad = branch_listUpDirAngle_deg[i] * DEG2RAD;
+
       const ceilingHeight = branch_listCeilingHeight[i];
       const ceil_distToRoot = ceilingHeight / Math.cos(upAngle_rad);
       const ceil_pt = ZERO_VEC.clone()
@@ -454,9 +486,11 @@ export function branchingCoral_generate(params: {
         .add(branch_root_pt);
 
       console.log(
-        `branch-${i}[${location}]`,
+        `branch[${branch_id}]`,
         ` upAngle=`,
         branch_listUpDirAngle_deg[i].toFixed(3),
+        ` forward_upAngle=`,
+        (parent_forwardDir.angleTo(UP_DIR) / DEG2RAD).toFixed(3),
         ` ceilingHeight=`,
         ceilingHeight.toFixed(3),
       );
@@ -475,6 +509,7 @@ export function branchingCoral_generate(params: {
         forward_vec: forward_vec,
         root_pt: branch_root_pt,
         radius: parent.tube_radius,
+        id: branch_id,
         randFn: randFn,
       });
       queue.push({
@@ -522,11 +557,14 @@ export function branchingCoral_generate(params: {
         continue;
       }
 
+      // console.log(`branchingPointCnt[${curBranch.id}]`);
+
       const branchingPointCnt = branchingPointCnt_generate({
         curGrowthLevel,
         growthLevelCnt,
         randFn,
       });
+
       if (branchingPointCnt == 0) {
         continue;
       }
@@ -536,11 +574,12 @@ export function branchingCoral_generate(params: {
         randFn,
       });
 
-      for (const location of listBranchLocation) {
+      for (let i = 0; i < listBranchLocation.length; i++) {
         branch_generateOnParent({
           parent: curBranch,
           parent_growthLevel: curGrowthLevel,
-          location,
+          locationIdx: i,
+          location: listBranchLocation[i],
           queue,
           randFn,
         });
