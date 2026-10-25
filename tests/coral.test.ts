@@ -52,6 +52,25 @@ describe('coral generators', () => {
     expect(positions(branching('7/coral/branching/1'))).not.toEqual(positions(a));
   });
 
+  it('grows a branching coral around its root, wherever the root is', () => {
+    const root = new THREE.Vector3(20, -10, -15);
+    for (let i = 0; i < 5; i++) {
+      const mesh = branchingCoral_generate({
+        root_pt: root.clone(),
+        root_normalVec: new THREE.Vector3(0, 1, 0),
+        root_distToCeil: 1,
+        root_radius: 0.02,
+        growthLevelCnt: 3,
+        material: new THREE.MeshStandardMaterial(),
+        seedHash: `7/coral/branching/${i}`,
+      });
+      mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox!;
+      expect(box.distanceToPoint(root)).toBeLessThan(0.05);
+      expect(box.getSize(new THREE.Vector3()).length()).toBeLessThan(3);
+    }
+  });
+
   it('builds the same brain coral from the same seed', () => {
     const a = brain('7/coral/brain/0');
     expect(Array.from(positions(a)).every(Number.isFinite)).toBe(true);

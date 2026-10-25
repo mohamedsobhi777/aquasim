@@ -570,8 +570,10 @@ export function branchingCoral_generate(params: {
 
   const merger = new GeometryMerger();
 
+  // Grow at the origin and move into place afterwards: the random rotations
+  // below turn about axes through the origin, not through root_pt.
   const rootBranchTube = rootBranchTube_generate({
-    root_pt,
+    root_pt: new THREE.Vector3(),
     normal_vec: root_normalVec,
     root_distToCeil,
     radius: root_radius,
@@ -584,6 +586,7 @@ export function branchingCoral_generate(params: {
   });
 
   const rootBranchTube_finalGeom = merger.merge();
+  rootBranchTube_finalGeom.translate(root_pt.x, root_pt.y, root_pt.z);
 
   const rootBranchTube_mesh = new THREE.Mesh(rootBranchTube_finalGeom, material);
 
@@ -808,8 +811,10 @@ export function brainCoral_generate(params: {
   height: number;
   material: THREE.MeshStandardMaterial;
   seedHash: string;
+  /** Segments along the shorter side (default 384, about 320k triangles). */
+  segments?: number;
 }) {
-  const sphere_segCntMinConstraint = 384;
+  const sphere_segCntMinConstraint = params.segments ?? 384;
 
   /** Should be smaller than sphere_segCntMinConstraint */
   const brainPatternTextureImg_minSizeConstraint = 256;
