@@ -87,6 +87,13 @@ Variants are interleaved per pose so GPU clock changes affect all of them
 alike. Timings vary by about ±1 ms between runs, so compare large
 differences only, or raise _timed renders / pose_.
 
+## Code style
+
+`npm run format` (Prettier, `.prettierrc.json`) before committing; `npm run format:check` verifies it.
+camelCase for functions and variables, PascalCase for types and classes, UPPER_SNAKE_CASE for module constants.
+No debug `console.log`; report problems through `app.onStatus` or thrown errors. Third-party code lives unchanged in
+`src/vendor/`. Run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so blame skips the formatting commit.
+
 ## Adding a scenario
 
 Implement `SceneModule` (`src/core/sceneModule.ts`) and add it to
