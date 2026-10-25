@@ -917,105 +917,17 @@ export function brainCoral_generate(params: {
   material: THREE.MeshStandardMaterial;
   seedHash: string;
 }) {
-  const sphere_widthSegCnt = 128;
-  const sphere_heightSegCnt = 128;
+  const sphere_segCntMinConstraint = 384;
+
+  /** Should be smaller than sphere_segCntMinConstraint */
+  const brainPatternTextureImg_minSizeConstraint = 256;
 
   // #region [sub]
-  const deformSphere = (params: {
-    sphere: THREE.SphereGeometry;
-    sphere_widthSegCnt: number;
-    sphere_heightSegCnt: number;
-    randFn: RandomFunc;
-  }) => {
-    const deformFactorConstraints = {
-      x: [0, 0],
-      y: [0, 0.3],
-      z: [0, 0.2],
-    };
-
-    const { sphere, sphere_widthSegCnt, sphere_heightSegCnt, randFn } = params;
-
-    const attr_position = sphere.getAttribute("position");
-
-    let bounds = {
-      x: [Infinity, -Infinity],
-      y: [Infinity, -Infinity],
-      z: [Infinity, -Infinity],
-    };
-
-    for (let i = 0; i < attr_position.count; i++) {
-      const pt = {
-        x: attr_position.getX(i),
-        y: attr_position.getY(i),
-        z: attr_position.getZ(i),
-      };
-
-      for (const axis of ["x", "y", "z"] as const) {
-        const val = pt[axis];
-        if (val > bounds[axis][1]) {
-          bounds[axis][1] = val;
-        }
-        if (val < bounds[axis][0]) {
-          bounds[axis][0] = val;
-        }
-      }
-    }
-
-    const dict_posIdx_offsetVec: Record<
-      number,
-      { x: number; y: number; z: number }
-    > = {};
-
-    for (let i = 0; i < attr_position.count; i++) {
-      const pt = {
-        x: attr_position.getX(i),
-        y: attr_position.getY(i),
-        z: attr_position.getZ(i),
-      };
-
-      const i_canon = sphereGeometry_getCanonicalIndex({
-        i,
-        widthSegCnt: sphere_widthSegCnt,
-        heightSegCnt: sphere_heightSegCnt,
-      });
-      let offsetVec = dict_posIdx_offsetVec[i_canon];
-      if (offsetVec === undefined) {
-        offsetVec = { x: 0, y: 0, z: 0 };
-
-        for (const axis of ["x", "y", "z"] as const) {
-          let offset = Math.min(
-            pt[axis] - bounds[axis][0],
-            bounds[axis][1] - pt[axis],
-          );
-          offsetVec[axis] =
-            offset *
-            randRange({
-              a: deformFactorConstraints[axis][0],
-              b: deformFactorConstraints[axis][1],
-              randFn,
-            });
-        }
-
-        dict_posIdx_offsetVec[i_canon] = offsetVec;
-      }
-
-      attr_position.setXYZ(
-        i,
-        pt.x + offsetVec.x,
-        pt.y + offsetVec.y,
-        pt.z + offsetVec.z,
-      );
-    }
-    attr_position.needsUpdate = true;
-  };
-
   const brainPatternTexture_generate = (params: {
     sphere_xSize: number;
     sphere_zSize: number;
     seedHash: string;
   }) => {
-    const imgMinSizeConstraint = 512;
-
     const { seedHash, sphere_xSize, sphere_zSize } = params;
 
     const seed = xxh().update(seedHash).update("texture").digest().toNumber();
@@ -1024,20 +936,20 @@ export function brainCoral_generate(params: {
     // The following settings are based on experiment,
     // It simulates the brain pattern on the coral surface.
     noiseGen.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-    noiseGen.SetFrequency(0.02);
+    noiseGen.SetFrequency(0.03);
     noiseGen.SetFractalType(FastNoiseLite.FractalType.PingPong);
     noiseGen.SetFractalPingPongStrength(2.11);
 
-    let img_width = imgMinSizeConstraint;
-    let img_height = imgMinSizeConstraint;
+    let img_width = brainPatternTextureImg_minSizeConstraint;
+    let img_height = brainPatternTextureImg_minSizeConstraint;
 
     if (sphere_xSize > sphere_zSize) {
       img_width = Math.ceil(
-        (sphere_xSize / sphere_zSize) * imgMinSizeConstraint,
+        (sphere_xSize / sphere_zSize) * brainPatternTextureImg_minSizeConstraint,
       );
     } else if (sphere_zSize > sphere_xSize) {
       img_height = Math.ceil(
-        (sphere_zSize / sphere_xSize) * imgMinSizeConstraint,
+        (sphere_zSize / sphere_xSize) * brainPatternTextureImg_minSizeConstraint,
       );
     }
 
@@ -1053,8 +965,94 @@ export function brainCoral_generate(params: {
       }
     }
 
-    const textureData = new THREE.DataArrayTexture(imgData, img_width, img_height, 1);
+    const textureData = new THREE.DataArrayTexture(
+      imgData,
+      img_width,
+      img_height,
+      1,
+    );
     return textureData;
+  };
+
+  const brainPatternTexture_getUV = (pt: THREE.Vector3): THREE.Vector2 => {
+    const horizontalDistance = Math.hypot(pt.x, pt.z);
+    const theta = Math.atan2(horizontalDistance, pt.y);
+
+    // Pole -> 0; hemisphere rim -> 0.5.
+    const imageRadius = theta / PI;
+
+    const uv = new THREE.Vector2();
+
+    if (horizontalDistance < 1e-8) {
+      uv.set(0.5, 0.5);
+    } else {
+      uv.set(
+        0.5 + (imageRadius * pt.x) / horizontalDistance,
+        0.5 - (imageRadius * pt.z) / horizontalDistance,
+      );
+    }
+
+    return uv;
+  };
+
+  const brainPatternTexture_applyOnGeom = (params: {
+    sphere: THREE.SphereGeometry;
+    textureData: THREE.DataArrayTexture;
+    sphere_widthSegCnt: number;
+    sphere_heightSegCnt: number;
+  }) => {
+    const offsetLenConstraint = 0.036;
+
+    const {
+      sphere,
+      textureData,
+      sphere_widthSegCnt,
+      sphere_heightSegCnt,
+    } = params;
+
+    const attr_position = sphere.attributes.position;
+    const attr_normal = sphere.attributes.normal;
+
+    const dict_posIdx_offsetVec: Record<number, THREE.Vector3> = {};
+
+    for (let i = 0; i < attr_position.count; i++) {
+      const pt = new THREE.Vector3(
+        attr_position.getX(i),
+        attr_position.getY(i),
+        attr_position.getZ(i),
+      );
+
+      const i_canon = sphereGeometry_getCanonicalIndex({
+        i,
+        widthSegCnt: sphere_widthSegCnt,
+        heightSegCnt: sphere_heightSegCnt,
+      });
+      let offsetVec = dict_posIdx_offsetVec[i_canon];
+
+      if (offsetVec) {
+        pt.add(offsetVec);
+        attr_position.setXYZ(i, pt.x, pt.y, pt.z);
+        continue;
+      }
+
+      const uv = brainPatternTexture_getUV(pt);
+      const color = DataArrayTexture_getColor({
+        data: textureData,
+        uv,
+      });
+      const offsetLen = offsetLenConstraint * (color / 255);
+      offsetVec = new THREE.Vector3()
+        .fromBufferAttribute(attr_normal, i)
+        .normalize()
+        .multiplyScalar(offsetLen);
+      pt.add(offsetVec);
+
+      attr_position.setXYZ(i, pt.x, pt.y, pt.z);
+      dict_posIdx_offsetVec[i_canon] = offsetVec;
+    }
+
+    sphere.computeBoundingBox();
+    sphere.computeVertexNormals();
   };
   // #endregion [sub]
 
@@ -1069,6 +1067,17 @@ export function brainCoral_generate(params: {
   } = params;
 
   const randFn = seedrandom(seedHash);
+
+  let sphere_widthSegCnt = 100;
+  let sphere_heightSegCnt = 100;
+
+  if (x_size > z_size) {
+    sphere_heightSegCnt = sphere_segCntMinConstraint;
+    sphere_widthSegCnt = Math.floor((x_size / z_size) * sphere_heightSegCnt);
+  } else {
+    sphere_widthSegCnt = sphere_segCntMinConstraint;
+    sphere_heightSegCnt = Math.floor((z_size / x_size) * sphere_widthSegCnt);
+  }
 
   const sphere = new THREE.SphereGeometry(
     1,
@@ -1086,8 +1095,14 @@ export function brainCoral_generate(params: {
     sphere_zSize: z_size,
     seedHash,
   });
+  brainPatternTexture_applyOnGeom({
+    sphere: sphere,
+    textureData: brainPatternTextureData,
+    sphere_widthSegCnt,
+    sphere_heightSegCnt,
+  });
 
-  deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
+  // deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
 
   sphere.applyMatrix4(
     new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
@@ -1117,4 +1132,44 @@ function sphereGeometry_getCanonicalIndex(params: {
     return iy * rowSize;
   }
   return i;
+}
+
+/**
+ * Currently only support REDFormat
+ */
+function DataArrayTexture_getColor(params: {
+  data: THREE.DataArrayTexture;
+  uv: THREE.Vector2;
+}): number {
+  // #region [sub]
+  const readColor = (x: number, y: number) => {
+    x = THREE.MathUtils.clamp(x, 0, data.image.width - 1);
+    y = THREE.MathUtils.clamp(y, 0, data.image.height - 1);
+
+    const index = y * data.image.width + x;
+    return data.image.data![index];
+  };
+  // #endregion [sub]
+
+  const { data, uv } = params;
+  const width = data.image.width;
+  const height = data.image.height;
+
+  const mid_x = Math.floor(uv.x * width) - 0.5;
+  const mid_y = Math.floor(uv.y * height) - 0.5;
+
+  const x0 = Math.floor(mid_x);
+  const y0 = Math.floor(mid_y);
+  const tx = mid_x - x0;
+  const ty = mid_y - y0;
+  const a = readColor(x0, y0);
+  const b = readColor(x0 + 1, y0);
+  const c = readColor(x0, y0 + 1);
+  const d = readColor(x0 + 1, y0 + 1);
+
+  const bottom = a + (b - a) * tx;
+  const top = c + (d - c) * tx;
+
+  const color_out = Math.floor(bottom + (top - bottom) * ty);
+  return color_out;
 }

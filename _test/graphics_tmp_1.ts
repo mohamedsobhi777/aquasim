@@ -4,35 +4,92 @@ import * as THREE from "three";
 import _ from "lodash";
 
 function brainColor() {
-  const setupUV = (params: { sphere: THREE.SphereGeometry }) => {
-    const { sphere } = params;
+  const deformSphere = (params: {
+    sphere: THREE.SphereGeometry;
+    sphere_widthSegCnt: number;
+    sphere_heightSegCnt: number;
+    randFn: RandomFunc;
+  }) => {
+    const deformFactorConstraints = {
+      x: [0, 0],
+      y: [0, 0.3],
+      z: [0, 0.2],
+    };
 
-    const attr_position = sphere.attributes.position;
-    const attr_uv = sphere.attributes.uv;
+    const { sphere, sphere_widthSegCnt, sphere_heightSegCnt, randFn } = params;
+
+    const attr_position = sphere.getAttribute("position");
+
+    let bounds = {
+      x: [Infinity, -Infinity],
+      y: [Infinity, -Infinity],
+      z: [Infinity, -Infinity],
+    };
 
     for (let i = 0; i < attr_position.count; i++) {
-      const x = attr_position.getX(i);
-      const y = attr_position.getY(i);
-      const z = attr_position.getZ(i);
+      const pt = {
+        x: attr_position.getX(i),
+        y: attr_position.getY(i),
+        z: attr_position.getZ(i),
+      };
 
-      const horizontalDistance = Math.hypot(x, z);
-      const theta = Math.atan2(horizontalDistance, y);
-
-      // Pole -> 0; hemisphere rim -> 0.5.
-      const imageRadius = theta / PI;
-
-      if (horizontalDistance < 1e-8) {
-        attr_uv.setXY(i, 0.5, 0.5);
-      } else {
-        attr_uv.setXY(
-          i,
-          0.5 + (imageRadius * x) / horizontalDistance,
-          0.5 - (imageRadius * z) / horizontalDistance,
-        );
+      for (const axis of ["x", "y", "z"] as const) {
+        const val = pt[axis];
+        if (val > bounds[axis][1]) {
+          bounds[axis][1] = val;
+        }
+        if (val < bounds[axis][0]) {
+          bounds[axis][0] = val;
+        }
       }
     }
 
-    attr_uv.needsUpdate = true;
+    const dict_posIdx_offsetVec: Record<
+      number,
+      { x: number; y: number; z: number }
+    > = {};
+
+    for (let i = 0; i < attr_position.count; i++) {
+      const pt = {
+        x: attr_position.getX(i),
+        y: attr_position.getY(i),
+        z: attr_position.getZ(i),
+      };
+
+      const i_canon = sphereGeometry_getCanonicalIndex({
+        i,
+        widthSegCnt: sphere_widthSegCnt,
+        heightSegCnt: sphere_heightSegCnt,
+      });
+      let offsetVec = dict_posIdx_offsetVec[i_canon];
+      if (offsetVec === undefined) {
+        offsetVec = { x: 0, y: 0, z: 0 };
+
+        for (const axis of ["x", "y", "z"] as const) {
+          let offset = Math.min(
+            pt[axis] - bounds[axis][0],
+            bounds[axis][1] - pt[axis],
+          );
+          offsetVec[axis] =
+            offset *
+            randRange({
+              a: deformFactorConstraints[axis][0],
+              b: deformFactorConstraints[axis][1],
+              randFn,
+            });
+        }
+
+        dict_posIdx_offsetVec[i_canon] = offsetVec;
+      }
+
+      attr_position.setXYZ(
+        i,
+        pt.x + offsetVec.x,
+        pt.y + offsetVec.y,
+        pt.z + offsetVec.z,
+      );
+    }
+    attr_position.needsUpdate = true;
   };
 }
 
