@@ -5,7 +5,7 @@ import { patchUnderwater } from '../../core/water';
 import { collarAt, cylinderBetween, instanced, restPipeOnGround } from './geometry';
 import { legOutward, legPoint } from './jacket';
 import { CLASSES, PIPE, SEABED_Y, TEMPLATE } from './layout';
-import { makeFoulingTexture } from './textures';
+import { makeFoulingTexture } from '../../core/textures';
 
 /** Leg that the riser is clamped to (the one facing the incoming pipeline). */
 const RISER_LEG = 0;

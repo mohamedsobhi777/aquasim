@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Rng } from '../../core/rng';
+import type { Rng } from './rng';
 
 export interface FoulingStyle {
   base: string;

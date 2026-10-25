@@ -4,7 +4,7 @@ import { tagSemantic } from '../../core/semantics';
 import { patchUnderwater } from '../../core/water';
 import { cylinderBetween, collarAt, instanced } from './geometry';
 import { CLASSES, JACKET, SEABED_Y } from './layout';
-import { makeFoulingTexture } from './textures';
+import { makeFoulingTexture } from '../../core/textures';
 
 /** Leg corner signs, in order around the jacket (so neighbours share a face). */
 const CORNERS: readonly [number, number][] = [

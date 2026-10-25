@@ -4,7 +4,7 @@ import { patchUnderwater } from '../../core/water';
 import { createValueNoise2D, type Rng } from '../../core/rng';
 import { tagSemantic } from '../../core/semantics';
 import { CLASSES, FIELD_SIZE, PADS, SEABED_Y } from './layout';
-import { makeFoulingTexture } from './textures';
+import { makeFoulingTexture } from '../../core/textures';
 
 /** 8 x 8 chunks; the finest level matches the old single 220 x 220 grid closely (0.66 m spacing). */
 const CHUNKS = 8;

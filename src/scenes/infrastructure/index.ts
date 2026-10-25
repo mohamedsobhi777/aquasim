@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { BuiltScene, SceneModule } from '../../core/sceneModule';
 import { lookAtTrajectory, type Trajectory } from '../../core/trajectory';
 import { validateClasses } from '../../core/semantics';
+import { disposeTree } from '../../core/dispose';
 import { createConnections } from './connections';
 import { createDebris } from './debris';
 import { createJacket } from './jacket';
@@ -179,18 +180,3 @@ export const infrastructureScene: SceneModule = {
     };
   },
 };
-
-function disposeTree(root: THREE.Object3D): void {
-  const materials = new Set<THREE.Material>();
-  root.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
-    object.geometry.dispose();
-    (Array.isArray(object.material) ? object.material : [object.material]).forEach((m) => materials.add(m));
-  });
-  materials.forEach((material) => {
-    Object.values(material).forEach((value) => {
-      if (value instanceof THREE.Texture) value.dispose();
-    });
-    material.dispose();
-  });
-}

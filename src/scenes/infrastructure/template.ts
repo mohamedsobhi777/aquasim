@@ -5,7 +5,7 @@ import { tagSemantic } from '../../core/semantics';
 import { patchUnderwater } from '../../core/water';
 import { cylinderBetween, instanced } from './geometry';
 import { CLASSES, SEABED_Y, TEMPLATE } from './layout';
-import { makeFoulingTexture } from './textures';
+import { makeFoulingTexture } from '../../core/textures';
 
 const MEMBER = 0.32;
 const HEADER_Y = 1.4;
