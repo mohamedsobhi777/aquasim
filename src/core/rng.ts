@@ -28,6 +28,28 @@ export function createRng(seed: number): Rng {
   };
 }
 
+/** 32-bit FNV-1a hash, for deriving seeds from names such as `${seed}/coral/brain/3`. */
+export function hashString(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** Picks an item with probability proportional to its (non-negative) weight. */
+export function weightedPick<T>(items: readonly T[], weights: readonly number[], next: () => number): T {
+  if (items.length === 0 || items.length !== weights.length) throw new Error('weightedPick: items and weights must be non-empty and the same length');
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let key = next() * total;
+  for (let i = 0; i < items.length; i++) {
+    key -= weights[i];
+    if (key < 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
 /** Smooth 2D value noise with fractal octaves, deterministic for a given seed. */
 export function createValueNoise2D(seed: number): (x: number, y: number) => number {
   const rng = createRng(seed);

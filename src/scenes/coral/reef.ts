@@ -1,17 +1,17 @@
 import * as THREE from "three";
-import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
-import seedrandom from "seedrandom";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI, xxh } from "./const";
+import { createRng, hashString, weightedPick } from "../../core/rng";
+
+import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI } from "./const";
 import type { RandomFunc } from "./types";
 
-import weightedSelect from "./lib-external/weighted";
 import {
   projectPointOnVec,
   randMultipleWithMinDist,
   randRange
 } from "./lib/math";
-import FastNoiseLite from "./lib-external/fastnoise-lite";
+import FastNoiseLite from "../../vendor/fastnoise-lite";
 
 class GeometryMerger {
   listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
@@ -333,10 +333,7 @@ export function branchingCoral_generate(params: {
     if (listChoice.length === 1) {
       choice = listChoice[0];
     } else if (listChoice.length != 0) {
-      choice = weightedSelect(listChoice, listWeight, {
-        rand: randFn,
-        normal: true,
-      });
+      choice = weightedPick(listChoice, listWeight, randFn);
     }
 
     for (let k = branchingPoint_maxCnt; k >= 0; k--) {
@@ -639,7 +636,7 @@ export function branchingCoral_generate(params: {
     root_distToCeil,
     growthLevelCnt,
   } = params;
-  const randFn = seedrandom(seedHash);
+  const randFn = createRng(hashString(seedHash)).next;
 
   const merger = new GeometryMerger();
 
@@ -724,25 +721,6 @@ function branchTube_createThorns(params: {
       .map((p) => new THREE.Vector2(p.x * radius, p.y * height));
 
     return new THREE.LatheGeometry(curve_pts, lathe_segCnt);
-  };
-
-  /**
-   * Number of frame segments stored in tube_geom.
-   * TubeGeometry stores (tubularSegments + 1) frames; validate against tube_tubeSegCnt.
-   */
-  const tube_resolveFrameSegCnt = (
-    geom: THREE.TubeGeometry,
-    expectedSegCnt: number,
-  ): number => {
-    const storedSegCnt = geom.tangents.length - 1;
-    if (storedSegCnt !== expectedSegCnt) {
-      console.warn(
-        `[branchTube_createThorns] tube_tubeSegCnt (${expectedSegCnt}) does not match ` +
-          `tube_geom frames (${storedSegCnt}). Using ${storedSegCnt}.`,
-      );
-      return storedSegCnt;
-    }
-    return expectedSegCnt;
   };
 
   /**
@@ -934,7 +912,7 @@ export function brainCoral_generate(params: {
 
     const { seedHash, sphere_xSize, sphere_zSize } = params;
 
-    const seed = xxh().update(seedHash).update("texture").digest().toNumber();
+    const seed = hashString(`${seedHash}/texture`);
     const noiseGen = new FastNoiseLite(seed);
 
     // The following settings are based on experiment,
@@ -1024,7 +1002,7 @@ export function brainCoral_generate(params: {
     const attr_normal = sphere.attributes.normal;
 
     const setCanonIdx = new Set<number>();
-    const offsetLen_arr = new Float16Array(attr_position.count);
+    const offsetLen_arr = new Float32Array(attr_position.count);
 
     for (let i = 0; i < attr_position.count; i++) {
       const pt = new THREE.Vector3(
@@ -1216,7 +1194,7 @@ function DataArrayTexture_getColor(params: {
   return color_out;
 }
 
-type taubinSmooth_InputArray = Float32Array | Float16Array;
+type taubinSmooth_InputArray = Float32Array;
 
 /**
  * This function update H in-place
