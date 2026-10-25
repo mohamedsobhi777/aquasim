@@ -49,9 +49,13 @@ export function createRovModel(lampSpacing: number): RovModel {
   const foam = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xf2b21b, roughness: 0.65 }));
   const frame = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x1d1f21, roughness: 0.6, metalness: 0.3 }));
   const metal = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x9aa0a4, roughness: 0.35, metalness: 0.8 }));
-  const duct = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x2b2d30, roughness: 0.5, side: THREE.DoubleSide }));
+  const duct = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0x2b2d30, roughness: 0.5, side: THREE.DoubleSide }),
+  );
   const glass = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x0b1a26, roughness: 0.05, metalness: 0.9 }));
-  const lens = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xfff1d0, emissiveIntensity: 2.5 }));
+  const lens = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xfff1d0, emissiveIntensity: 2.5 }),
+  );
   const tether = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xd94f1e, roughness: 0.6 }));
 
   const back = FRONT_Z + LENGTH;
@@ -60,10 +64,12 @@ export function createRovModel(lampSpacing: number): RovModel {
     for (const z of [FRONT_Z + 0.05, back - 0.05]) group.add(bar(v(x, BOTTOM_Y, z), v(x, FRAME_TOP_Y, z), 0.05, frame));
     for (const y of [BOTTOM_Y, FRAME_TOP_Y]) group.add(bar(v(x, y, FRONT_Z), v(x, y, back), 0.05, frame));
   }
-  for (const z of [FRONT_Z + 0.05, back - 0.05]) group.add(bar(v(-HALF_WIDTH, BOTTOM_Y, z), v(HALF_WIDTH, BOTTOM_Y, z), 0.05, frame));
+  for (const z of [FRONT_Z + 0.05, back - 0.05])
+    group.add(bar(v(-HALF_WIDTH, BOTTOM_Y, z), v(HALF_WIDTH, BOTTOM_Y, z), 0.05, frame));
 
   // Skids.
-  for (const x of [-HALF_WIDTH + 0.1, HALF_WIDTH - 0.1]) group.add(bar(v(x, BOTTOM_Y - 0.08, FRONT_Z + 0.1), v(x, BOTTOM_Y - 0.08, back - 0.1), 0.06, metal));
+  for (const x of [-HALF_WIDTH + 0.1, HALF_WIDTH - 0.1])
+    group.add(bar(v(x, BOTTOM_Y - 0.08, FRONT_Z + 0.1), v(x, BOTTOM_Y - 0.08, back - 0.1), 0.06, metal));
 
   // Syntactic-foam buoyancy block with a chamfered nose.
   const buoyancy = new THREE.Mesh(new THREE.BoxGeometry(HALF_WIDTH * 2 + 0.06, 0.38, LENGTH - 0.25), foam);
@@ -132,7 +138,12 @@ export function createRovModel(lampSpacing: number): RovModel {
   group.add(jaw);
 
   // Tether rising from the back of the vehicle.
-  const tetherCurve = new THREE.CatmullRomCurve3([v(0, FRAME_TOP_Y + 0.38, back - 0.15), v(0, 1.2, back + 0.4), v(0.4, 3.5, back + 1.2), v(1.2, 9, back + 2)]);
+  const tetherCurve = new THREE.CatmullRomCurve3([
+    v(0, FRAME_TOP_Y + 0.38, back - 0.15),
+    v(0, 1.2, back + 0.4),
+    v(0.4, 3.5, back + 1.2),
+    v(1.2, 9, back + 2),
+  ]);
   group.add(new THREE.Mesh(new THREE.TubeGeometry(tetherCurve, 40, 0.025, 8, false), tether));
 
   const model: RovModel = { group, lampHousings, brackets, bracketMaterial: frame };

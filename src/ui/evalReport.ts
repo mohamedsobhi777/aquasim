@@ -3,11 +3,23 @@ import type { EvaluationReport, VariantResult } from '../eval/runner';
 const COLUMNS: [string, string, (r: VariantResult) => string][] = [
   ['variant', 'What is switched off', (r) => r.label],
   ['ms', 'GPU-synced frame time, median', (r) => r.frameMs.median.toFixed(2)],
-  ['saved', 'Frame time saved vs. all effects (the effect’s cost)', (r) => (r.id === 'reference' ? '—' : signed(r.savedMs))],
+  [
+    'saved',
+    'Frame time saved vs. all effects (the effect’s cost)',
+    (r) => (r.id === 'reference' ? '—' : signed(r.savedMs)),
+  ],
   ['tris', 'Triangles drawn, shadow passes included', (r) => `${(r.triangles / 1000).toFixed(0)}k`],
   ['calls', 'Draw calls', (r) => r.drawCalls.toFixed(0)],
-  ['changed', 'Pixels that change vs. all effects', (r) => (r.id === 'reference' ? '—' : `${(r.image.changed * 100).toFixed(1)}%`)],
-  ['PSNR', 'Image similarity to all effects, dB', (r) => (r.id === 'reference' ? '—' : r.image.psnr >= 99 ? '∞' : r.image.psnr.toFixed(1))],
+  [
+    'changed',
+    'Pixels that change vs. all effects',
+    (r) => (r.id === 'reference' ? '—' : `${(r.image.changed * 100).toFixed(1)}%`),
+  ],
+  [
+    'PSNR',
+    'Image similarity to all effects, dB',
+    (r) => (r.id === 'reference' ? '—' : r.image.psnr >= 99 ? '∞' : r.image.psnr.toFixed(1)),
+  ],
   ['contrast', 'RMS luminance contrast (visibility)', (r) => r.contrast.toFixed(3)],
   ['labels', 'Mask pixels identical to all effects', (r) => `${(r.labelAgreement * 100).toFixed(2)}%`],
   ['aligned', 'Worst frame: depth and mask agree on surface', (r) => `${(r.coverage * 100).toFixed(2)}%`],

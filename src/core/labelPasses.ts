@@ -100,7 +100,11 @@ export class LabelPasses {
   prepare(root: THREE.Object3D, classes: readonly SemanticClass[]): InstanceRecord[] {
     this.disposeMaterials();
     this.visColors.clear();
-    for (const c of classes) this.visColors.set(c.id, new THREE.Color().setRGB(c.color[0] / 255, c.color[1] / 255, c.color[2] / 255, THREE.SRGBColorSpace));
+    for (const c of classes)
+      this.visColors.set(
+        c.id,
+        new THREE.Color().setRGB(c.color[0] / 255, c.color[1] / 255, c.color[2] / 255, THREE.SRGBColorSpace),
+      );
 
     const names = new Map(classes.map((c) => [c.id, c.name]));
     const records: InstanceRecord[] = [];
@@ -120,7 +124,13 @@ export class LabelPasses {
       if (next + count - 1 > MAX_INSTANCE_ID) throw new Error(`Too many label instances (> ${MAX_INSTANCE_ID})`);
       (object.userData as LabelData).instanceBase = next;
       if (slot) slotBases.set(slot.key, next);
-      records.push({ instanceId: next, count, classId, className: names.get(classId) ?? 'unlabeled', objectName: slot?.name ?? object.name });
+      records.push({
+        instanceId: next,
+        count,
+        classId,
+        className: names.get(classId) ?? 'unlabeled',
+        objectName: slot?.name ?? object.name,
+      });
       next += count;
     });
     return records;
@@ -170,7 +180,10 @@ export class LabelPasses {
     scene.traverse((object) => {
       if (!object.visible) return;
       const isMesh = object instanceof THREE.Mesh;
-      if (isExcludedFromLabels(object) || (!isMesh && (object instanceof THREE.Points || object instanceof THREE.Line || object instanceof THREE.Sprite))) {
+      if (
+        isExcludedFromLabels(object) ||
+        (!isMesh && (object instanceof THREE.Points || object instanceof THREE.Line || object instanceof THREE.Sprite))
+      ) {
         object.visible = false;
         restoreVisible.push(object);
         return;

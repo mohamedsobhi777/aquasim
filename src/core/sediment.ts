@@ -76,7 +76,11 @@ export function puffAt(
   const rise = (0.25 + 0.9 * e * h3) * (1 - Math.exp(-age / 1.5)) - 0.015 * Math.max(0, age - 6);
   center.y = groundHeight(center.x, center.z) + Math.max(radius * 0.45, rise + radius * 0.3);
 
-  const opacity = Math.min(0.6, e * 0.55) * (1 - Math.exp(-age / 0.35)) * Math.exp(-age / 8) * THREE.MathUtils.clamp(0.7 / radius, 0.15, 1);
+  const opacity =
+    Math.min(0.6, e * 0.55) *
+    (1 - Math.exp(-age / 0.35)) *
+    Math.exp(-age / 8) *
+    THREE.MathUtils.clamp(0.7 / radius, 0.15, 1);
   return opacity < 0.004 ? null : { center, radius, opacity, seed: h1 };
 }
 
@@ -106,7 +110,11 @@ function makeNoiseTexture(seed: number): THREE.DataTexture {
       const j = Math.floor(y / step);
       const u = fade((x % step) / step);
       const v = fade((y % step) / step);
-      const value = THREE.MathUtils.lerp(THREE.MathUtils.lerp(at(i, j), at(i + 1, j), u), THREE.MathUtils.lerp(at(i, j + 1), at(i + 1, j + 1), u), v);
+      const value = THREE.MathUtils.lerp(
+        THREE.MathUtils.lerp(at(i, j), at(i + 1, j), u),
+        THREE.MathUtils.lerp(at(i, j + 1), at(i + 1, j + 1), u),
+        v,
+      );
       data[y * NOISE_SIZE + x] = Math.round(value * 255);
     }
   }
@@ -208,8 +216,12 @@ export class SedimentPlumes {
     this.geometry = new THREE.InstancedBufferGeometry();
     this.geometry.index = quad.index;
     this.geometry.setAttribute('position', quad.getAttribute('position'));
-    this.centers = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS * 4), 4).setUsage(THREE.DynamicDrawUsage);
-    this.params = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS * 2), 2).setUsage(THREE.DynamicDrawUsage);
+    this.centers = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS * 4), 4).setUsage(
+      THREE.DynamicDrawUsage,
+    );
+    this.params = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS * 2), 2).setUsage(
+      THREE.DynamicDrawUsage,
+    );
     this.geometry.setAttribute('iCenter', this.centers);
     this.geometry.setAttribute('iParams', this.params);
     this.geometry.instanceCount = 0;

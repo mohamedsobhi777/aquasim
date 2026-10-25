@@ -53,7 +53,11 @@ export class RobotTrack {
   }
 
   /** Replaces the track with the path given by `poseAt` over the window ending at `now`. */
-  rebuild(now: number, poseAt: (t: number) => { position: THREE.Vector3; yaw: number }, groundHeight: (x: number, z: number) => number): void {
+  rebuild(
+    now: number,
+    poseAt: (t: number) => { position: THREE.Vector3; yaw: number },
+    groundHeight: (x: number, z: number) => number,
+  ): void {
     this.clear();
     const lastSlot = Math.floor(now / TRACK_INTERVAL + 1e-6);
     const firstSlot = Math.max(0, lastSlot - Math.round(TRACK_WINDOW / TRACK_INTERVAL));
@@ -67,8 +71,15 @@ export class RobotTrack {
   private push(t: number, position: THREE.Vector3, yaw: number, groundHeight: (x: number, z: number) => number): void {
     const last = this.samples[this.samples.length - 1];
     const velocity = new THREE.Vector3();
-    if (last && t - last.t > 1e-6 && t - last.t <= MAX_FLIGHT_GAP) velocity.subVectors(position, last.position).divideScalar(t - last.t);
-    this.samples.push({ t, position: position.clone(), velocity, yaw, altitude: position.y - groundHeight(position.x, position.z) });
+    if (last && t - last.t > 1e-6 && t - last.t <= MAX_FLIGHT_GAP)
+      velocity.subVectors(position, last.position).divideScalar(t - last.t);
+    this.samples.push({
+      t,
+      position: position.clone(),
+      velocity,
+      yaw,
+      altitude: position.y - groundHeight(position.x, position.z),
+    });
   }
 
   private prune(now: number): void {

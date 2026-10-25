@@ -37,7 +37,9 @@ export function instanced(
 
 function gaussianSmooth(values: readonly number[], sigma: number): number[] {
   const radius = Math.ceil(sigma * 2.5);
-  const weights = Array.from({ length: radius * 2 + 1 }, (_, k) => Math.exp(-((k - radius) ** 2) / (2 * sigma * sigma)));
+  const weights = Array.from({ length: radius * 2 + 1 }, (_, k) =>
+    Math.exp(-((k - radius) ** 2) / (2 * sigma * sigma)),
+  );
   return values.map((_, i) => {
     let sum = 0;
     let total = 0;

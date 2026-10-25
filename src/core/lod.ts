@@ -88,15 +88,24 @@ export class InstancedLod {
   /** Extra culling margin, metres, so off-screen instances near the view still cast shadows into it. */
   private readonly frustumMargin: number;
 
-  constructor(name: string, levels: readonly InstancedLodLevel[], material: THREE.Material, matrices: readonly THREE.Matrix4[], frustumMargin = 2) {
+  constructor(
+    name: string,
+    levels: readonly InstancedLodLevel[],
+    material: THREE.Material,
+    matrices: readonly THREE.Matrix4[],
+    frustumMargin = 2,
+  ) {
     if (levels.length === 0) throw new Error(`${name}: needs at least one level`);
     levels.forEach((level, i) => {
-      if (i > 0 && level.minPixels > levels[i - 1].minPixels) throw new Error(`${name}: levels must go from fine to coarse`);
+      if (i > 0 && level.minPixels > levels[i - 1].minPixels)
+        throw new Error(`${name}: levels must go from fine to coarse`);
     });
     this.group.name = name;
     this.matrices = matrices.map((m) => m.clone());
     this.frustumMargin = frustumMargin;
-    const local = levels[0].geometry.boundingSphere ?? (levels[0].geometry.computeBoundingSphere(), levels[0].geometry.boundingSphere!);
+    const local =
+      levels[0].geometry.boundingSphere ??
+      (levels[0].geometry.computeBoundingSphere(), levels[0].geometry.boundingSphere!);
     this.bounds = this.matrices.map((m) => local.clone().applyMatrix4(m));
 
     const slot: LabelSlot = { key: this.group, count: matrices.length, name };
@@ -104,7 +113,9 @@ export class InstancedLod {
     this.meshes = levels.map((level, i) => {
       const capacity = Math.max(1, matrices.length);
       const geometry = level.geometry.clone();
-      const labelIndex = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage);
+      const labelIndex = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(
+        THREE.DynamicDrawUsage,
+      );
       geometry.setAttribute('labelIndex', labelIndex);
       this.labelIndices.push(labelIndex);
       const mesh = new THREE.InstancedMesh(geometry, material, capacity);

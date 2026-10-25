@@ -61,7 +61,9 @@ describe('water model', () => {
   });
 
   it('rejects unknown presets', () => {
-    expect(() => computeWaterCoefficients({ presetId: 'nope', turbidity: 0, depth: 0 })).toThrow(/Unknown water preset/);
+    expect(() => computeWaterCoefficients({ presetId: 'nope', turbidity: 0, depth: 0 })).toThrow(
+      /Unknown water preset/,
+    );
   });
 });
 

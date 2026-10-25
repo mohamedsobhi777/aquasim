@@ -33,7 +33,11 @@ export function imageDifference(a: Uint8Array, b: Uint8Array): ImageDifference {
     if (pixelChanged) changed++;
   }
   const mse = squared / (pixels * 3);
-  return { meanAbs: abs / (pixels * 3), psnr: mse === 0 ? Infinity : 10 * Math.log10((255 * 255) / mse), changed: changed / pixels };
+  return {
+    meanAbs: abs / (pixels * 3),
+    psnr: mse === 0 ? Infinity : 10 * Math.log10((255 * 255) / mse),
+    changed: changed / pixels,
+  };
 }
 
 /** Standard deviation of luminance (0-1): a simple proxy for how much structure stays visible through the water. */

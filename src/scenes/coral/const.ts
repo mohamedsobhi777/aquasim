@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from 'three';
 
 export const PI = Math.PI;
 export const TAU = Math.PI * 2;

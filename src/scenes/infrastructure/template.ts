@@ -28,8 +28,14 @@ export interface SubseaTemplate {
 
 const v = (x: number, y: number, z: number): THREE.Vector3 => new THREE.Vector3(x, y, z);
 
-export function placed(geometry: THREE.BufferGeometry, position: THREE.Vector3, rotation = new THREE.Euler()): THREE.BufferGeometry {
-  return geometry.applyMatrix4(new THREE.Matrix4().compose(position, new THREE.Quaternion().setFromEuler(rotation), new THREE.Vector3(1, 1, 1)));
+export function placed(
+  geometry: THREE.BufferGeometry,
+  position: THREE.Vector3,
+  rotation = new THREE.Euler(),
+): THREE.BufferGeometry {
+  return geometry.applyMatrix4(
+    new THREE.Matrix4().compose(position, new THREE.Quaternion().setFromEuler(rotation), new THREE.Vector3(1, 1, 1)),
+  );
 }
 
 export function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
@@ -116,17 +122,27 @@ export function createTemplate(rng: Rng): SubseaTemplate {
   const paint = patchUnderwater(
     new THREE.MeshStandardMaterial({
       roughness: 0.7,
-      map: makeFoulingTexture(rng, { base: '#d4a21c', blotches: ['#7b6a2a', '#5f6b3a', '#a8762b', '#c9bf9a'], blotchCount: 180, grain: 0.12 }, [1, 4]),
+      map: makeFoulingTexture(
+        rng,
+        { base: '#d4a21c', blotches: ['#7b6a2a', '#5f6b3a', '#a8762b', '#c9bf9a'], blotchCount: 180, grain: 0.12 },
+        [1, 4],
+      ),
     }),
   );
   const steel = patchUnderwater(
     new THREE.MeshStandardMaterial({
       roughness: 0.55,
       metalness: 0.45,
-      map: makeFoulingTexture(rng, { base: '#8f938c', blotches: ['#5c6650', '#a47a4a', '#c6c1aa'], blotchCount: 120, grain: 0.1 }, [1, 1]),
+      map: makeFoulingTexture(
+        rng,
+        { base: '#8f938c', blotches: ['#5c6650', '#a47a4a', '#c6c1aa'], blotchCount: 120, grain: 0.1 },
+        [1, 1],
+      ),
     }),
   );
-  const darkSteel = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x3c4245, roughness: 0.5, metalness: 0.5 }));
+  const darkSteel = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0x3c4245, roughness: 0.5, metalness: 0.5 }),
+  );
   const orange = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xe8901a, roughness: 0.6 }));
   const concrete = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x7d7a70, roughness: 0.95 }));
 
@@ -177,7 +193,11 @@ export function createTemplate(rng: Rng): SubseaTemplate {
   // ROV panels on the outward face of each tree.
   const panelMatrices = WELLS.map(([x, z]) => {
     const side = Math.sign(x);
-    return new THREE.Matrix4().compose(v(x + side * 0.72, 2.3, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, side > 0 ? 0 : Math.PI, 0)), v(1, 1, 1));
+    return new THREE.Matrix4().compose(
+      v(x + side * 0.72, 2.3, z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, side > 0 ? 0 : Math.PI, 0)),
+      v(1, 1, 1),
+    );
   });
   const panels = instanced(panelGeometry(), orange, panelMatrices, 'rov-panels');
   tagSemantic(panels, CLASSES.rovPanel.id);

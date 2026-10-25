@@ -75,7 +75,12 @@ const nextTask = (): Promise<void> => new Promise((resolve) => setTimeout(resolv
  * the RGB render and comparing images and labels with the reference (the
  * first variant). Settings are restored afterwards, also on failure.
  */
-export async function runEvaluation(host: EvalHost, trajectory: Trajectory, options: EvalOptions, onProgress: (message: string) => void): Promise<EvaluationReport> {
+export async function runEvaluation(
+  host: EvalHost,
+  trajectory: Trajectory,
+  options: EvalOptions,
+  onProgress: (message: string) => void,
+): Promise<EvaluationReport> {
   const { size, frames, repeats } = options;
   if (frames < 1) throw new Error('frames must be at least 1');
   const variants = [REFERENCE_VARIANT, ...(options.variants ?? EFFECT_VARIANTS)];
@@ -188,6 +193,12 @@ const CSV_COLUMNS: [string, (r: VariantResult) => number | string][] = [
 ];
 
 export function reportToCsv(report: EvaluationReport): string {
-  const escape = (v: number | string): string => (typeof v === 'string' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : String(v));
-  return [CSV_COLUMNS.map(([name]) => name).join(','), ...report.variants.map((r) => CSV_COLUMNS.map(([, get]) => escape(get(r))).join(','))].join('\n') + '\n';
+  const escape = (v: number | string): string =>
+    typeof v === 'string' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : String(v);
+  return (
+    [
+      CSV_COLUMNS.map(([name]) => name).join(','),
+      ...report.variants.map((r) => CSV_COLUMNS.map(([, get]) => escape(get(r))).join(',')),
+    ].join('\n') + '\n'
+  );
 }

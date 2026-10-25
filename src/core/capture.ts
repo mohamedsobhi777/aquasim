@@ -56,8 +56,16 @@ export class FrameCapturer {
     this.hdr = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: RGB_MSAA_SAMPLES });
     this.ldr = new THREE.WebGLRenderTarget(width, height, { type: THREE.UnsignedByteType });
     // Label targets have no MSAA: blending ids or depths across edges would invent values.
-    this.depthTarget = new THREE.WebGLRenderTarget(width, height, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
-    this.maskTarget = new THREE.WebGLRenderTarget(width, height, { type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    this.depthTarget = new THREE.WebGLRenderTarget(width, height, {
+      type: THREE.FloatType,
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+    });
+    this.maskTarget = new THREE.WebGLRenderTarget(width, height, {
+      type: THREE.UnsignedByteType,
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+    });
     this.size = { width, height };
   }
 

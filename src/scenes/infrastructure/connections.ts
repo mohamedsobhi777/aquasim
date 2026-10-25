@@ -50,7 +50,13 @@ function jTubePoint(y: number): THREE.Vector3 {
  * Concrete mattress: a grid of blocks draped over the seabed and over a line
  * (pipe or umbilical) running along its centre.
  */
-function mattressGeometry(center: THREE.Vector3, tangent: THREE.Vector3, heightAt: HeightFn, bumpHeight: number, bumpHalfWidth: number): THREE.BufferGeometry {
+function mattressGeometry(
+  center: THREE.Vector3,
+  tangent: THREE.Vector3,
+  heightAt: HeightFn,
+  bumpHeight: number,
+  bumpHalfWidth: number,
+): THREE.BufferGeometry {
   const along = tangent.clone().setY(0).normalize();
   const across = new THREE.Vector3().crossVectors(along, UP).normalize();
   const yaw = Math.atan2(along.x, along.z);
@@ -68,11 +74,18 @@ function mattressGeometry(center: THREE.Vector3, tangent: THREE.Vector3, heightA
   return merge(blocks);
 }
 
-export function createConnections(rng: Rng, heightAt: HeightFn, pipeline: THREE.Curve<THREE.Vector3>, template: SubseaTemplate): Connections {
+export function createConnections(
+  rng: Rng,
+  heightAt: HeightFn,
+  pipeline: THREE.Curve<THREE.Vector3>,
+  template: SubseaTemplate,
+): Connections {
   const group = new THREE.Group();
   group.name = 'subsea-connections';
   const steel = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x5e6460, roughness: 0.6, metalness: 0.4 }));
-  const darkSteel = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x3c4245, roughness: 0.5, metalness: 0.5 }));
+  const darkSteel = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0x3c4245, roughness: 0.5, metalness: 0.5 }),
+  );
   const yellow = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xc89a22, roughness: 0.7 }));
   const umbilicalMaterial = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xd9861c, roughness: 0.55 }));
   const concrete = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x8e8a7e, roughness: 1 }));
@@ -134,7 +147,10 @@ export function createConnections(rng: Rng, heightAt: HeightFn, pipeline: THREE.
   const connectors = instanced(
     new THREE.CylinderGeometry(1, 1, 1, 18),
     darkSteel,
-    [collarAt(a.clone().add(new THREE.Vector3(0, 0, -0.3)), new THREE.Vector3(0, 0, 1), 0.36, 0.6), collarAt(b.clone().add(new THREE.Vector3(0, 0.3, 0)), UP, 0.36, 0.6)],
+    [
+      collarAt(a.clone().add(new THREE.Vector3(0, 0, -0.3)), new THREE.Vector3(0, 0, 1), 0.36, 0.6),
+      collarAt(b.clone().add(new THREE.Vector3(0, 0.3, 0)), UP, 0.36, 0.6),
+    ],
     'jumper-connectors',
   );
   tagSemantic(connectors, CLASSES.jumper.id);
@@ -146,13 +162,28 @@ export function createConnections(rng: Rng, heightAt: HeightFn, pipeline: THREE.
   const approach = bellmouth.clone().addScaledVector(legOutward(J_TUBE_LEG), 4);
   const plan = new THREE.SplineCurve([
     new THREE.Vector2(start.x + 2.5, start.z),
-    new THREE.Vector2(THREE.MathUtils.lerp(start.x, approach.x, 0.35), THREE.MathUtils.lerp(start.z, approach.z, 0.35) + rng.range(-6, 6)),
-    new THREE.Vector2(THREE.MathUtils.lerp(start.x, approach.x, 0.7), THREE.MathUtils.lerp(start.z, approach.z, 0.7) + rng.range(-6, 6)),
+    new THREE.Vector2(
+      THREE.MathUtils.lerp(start.x, approach.x, 0.35),
+      THREE.MathUtils.lerp(start.z, approach.z, 0.35) + rng.range(-6, 6),
+    ),
+    new THREE.Vector2(
+      THREE.MathUtils.lerp(start.x, approach.x, 0.7),
+      THREE.MathUtils.lerp(start.z, approach.z, 0.7) + rng.range(-6, 6),
+    ),
     new THREE.Vector2(approach.x, approach.z),
   ]);
-  const ground = plan.getSpacedPoints(Math.ceil(plan.getLength())).map((p) => new THREE.Vector3(p.x, heightAt(p.x, p.y) + UMBILICAL_RADIUS, p.y));
-  const umbilicalCurve = new THREE.CatmullRomCurve3([start, ...ground, bellmouth, jTubePoint(SEABED_Y + 2.5)], false, 'centripetal');
-  const umbilical = new THREE.Mesh(new THREE.TubeGeometry(umbilicalCurve, ground.length * 3, UMBILICAL_RADIUS, 10, false), umbilicalMaterial);
+  const ground = plan
+    .getSpacedPoints(Math.ceil(plan.getLength()))
+    .map((p) => new THREE.Vector3(p.x, heightAt(p.x, p.y) + UMBILICAL_RADIUS, p.y));
+  const umbilicalCurve = new THREE.CatmullRomCurve3(
+    [start, ...ground, bellmouth, jTubePoint(SEABED_Y + 2.5)],
+    false,
+    'centripetal',
+  );
+  const umbilical = new THREE.Mesh(
+    new THREE.TubeGeometry(umbilicalCurve, ground.length * 3, UMBILICAL_RADIUS, 10, false),
+    umbilicalMaterial,
+  );
   umbilical.name = 'umbilical';
   tagSemantic(umbilical, CLASSES.umbilical.id);
   meshes.push(umbilical);
@@ -160,19 +191,25 @@ export function createConnections(rng: Rng, heightAt: HeightFn, pipeline: THREE.
   const jTube = instanced(
     new THREE.CylinderGeometry(1, 1, 1, 16),
     steel,
-    [cylinderBetween(bellmouth, jTubePoint(J_TUBE_TOP), 0.2), collarAt(bellmouth, jTubePoint(J_TUBE_TOP).sub(bellmouth), 0.42, 0.7)],
+    [
+      cylinderBetween(bellmouth, jTubePoint(J_TUBE_TOP), 0.2),
+      collarAt(bellmouth, jTubePoint(J_TUBE_TOP).sub(bellmouth), 0.42, 0.7),
+    ],
     'j-tube',
   );
   tagSemantic(jTube, CLASSES.riser.id);
   const jClamps: THREE.Matrix4[] = [];
-  for (let y = SEABED_Y + 4; y < J_TUBE_TOP; y += 4) jClamps.push(cylinderBetween(jTubePoint(y), legPoint(J_TUBE_LEG, y), 0.08));
+  for (let y = SEABED_Y + 4; y < J_TUBE_TOP; y += 4)
+    jClamps.push(cylinderBetween(jTubePoint(y), legPoint(J_TUBE_LEG, y), 0.08));
   const jClampMesh = instanced(new THREE.CylinderGeometry(1, 1, 1, 10), darkSteel, jClamps, 'j-tube-clamps');
   tagSemantic(jClampMesh, CLASSES.riserClamp.id);
   meshes.push(jTube, jClampMesh);
 
   // Concrete mattresses protecting the umbilical near both ends and stabilising the pipeline near the PLET.
   const umbilicalPlan = new THREE.CatmullRomCurve3(ground);
-  const mattressSpots: { center: THREE.Vector3; tangent: THREE.Vector3; bump: number; half: number }[] = [0.06, 0.14, 0.5, 0.88, 0.95].map((k) => ({
+  const mattressSpots: { center: THREE.Vector3; tangent: THREE.Vector3; bump: number; half: number }[] = [
+    0.06, 0.14, 0.5, 0.88, 0.95,
+  ].map((k) => ({
     center: umbilicalPlan.getPointAt(k),
     tangent: umbilicalPlan.getTangentAt(k),
     bump: UMBILICAL_RADIUS * 2.2,
@@ -181,10 +218,18 @@ export function createConnections(rng: Rng, heightAt: HeightFn, pipeline: THREE.
   for (const offset of [-0.035, 0.035]) {
     const k = THREE.MathUtils.clamp(u + offset, 0, 1);
     const p = pipeline.getPointAt(k);
-    mattressSpots.push({ center: p, tangent: pipeline.getTangentAt(k), bump: p.y + PIPE.radius - heightAt(p.x, p.z), half: 1.1 });
+    mattressSpots.push({
+      center: p,
+      tangent: pipeline.getTangentAt(k),
+      bump: p.y + PIPE.radius - heightAt(p.x, p.z),
+      half: 1.1,
+    });
   }
   mattressSpots.forEach((spot, i) => {
-    const mattress = new THREE.Mesh(mattressGeometry(spot.center, spot.tangent, heightAt, spot.bump, spot.half), concrete);
+    const mattress = new THREE.Mesh(
+      mattressGeometry(spot.center, spot.tangent, heightAt, spot.bump, spot.half),
+      concrete,
+    );
     mattress.name = `mattress-${i}`;
     tagSemantic(mattress, CLASSES.mattress.id);
     meshes.push(mattress);

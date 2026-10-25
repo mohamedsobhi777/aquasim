@@ -34,7 +34,10 @@ describe('robot track', () => {
   });
 
   it('rebuilds the same history whatever the frame spacing', () => {
-    const poseAt = (t: number): { position: THREE.Vector3; yaw: number } => ({ position: new THREE.Vector3(t, -5, 0), yaw: 0 });
+    const poseAt = (t: number): { position: THREE.Vector3; yaw: number } => ({
+      position: new THREE.Vector3(t, -5, 0),
+      yaw: 0,
+    });
     const a = new RobotTrack();
     const b = new RobotTrack();
     a.rebuild(12.3, poseAt, flat);
@@ -99,13 +102,23 @@ describe('level of detail', () => {
     const stats = lod.update({ camera, pixelScale: 600, enabled: true });
     // -5 m: 150 px, -50 m: 12 px, -500 m: 1.2 px, +5 m is behind the camera.
     expect(stats.perLevel).toEqual([1, 1, 1]);
-    const labels = lod.meshes.map((mesh) => (mesh.geometry.getAttribute('labelIndex') as THREE.BufferAttribute).getX(0));
+    const labels = lod.meshes.map((mesh) =>
+      (mesh.geometry.getAttribute('labelIndex') as THREE.BufferAttribute).getX(0),
+    );
     expect(labels).toEqual([1, 2, 0]);
     expect(lod.update({ camera, pixelScale: 600, enabled: false }).perLevel).toEqual([4, 0, 0]);
   });
 
   it('gives every LOD level of an object the same label instance ids', () => {
-    const lod = new InstancedLod('rocks', [{ geometry: box(1), minPixels: 5 }, { geometry: box(0), minPixels: 0 }], new THREE.MeshBasicMaterial(), [at(-5), at(-9)]);
+    const lod = new InstancedLod(
+      'rocks',
+      [
+        { geometry: box(1), minPixels: 5 },
+        { geometry: box(0), minPixels: 0 },
+      ],
+      new THREE.MeshBasicMaterial(),
+      [at(-5), at(-9)],
+    );
     const root = new THREE.Group().add(new THREE.Mesh(box(0)), lod.group);
     const records = new LabelPasses().prepare(root, []);
     expect(records.map((r) => r.count)).toEqual([1, 2]);
@@ -125,7 +138,8 @@ describe('level of detail', () => {
         maxErrorPixels: 1.5,
       }).group;
     const view = { camera, pixelScale: 600, enabled: true };
-    const levels = (group: THREE.Group): number[] => group.children.filter((c) => c.visible).map((c) => Number(c.name.slice(-1)));
+    const levels = (group: THREE.Group): number[] =>
+      group.children.filter((c) => c.visible).map((c) => Number(c.name.slice(-1)));
     const flatGround = build(() => -2);
     lodUpdaters(flatGround).forEach((u) => u(view));
     expect(levels(flatGround)).toEqual([1, 1, 1, 1]);
@@ -139,9 +153,15 @@ describe('evaluation metrics', () => {
   const image = (values: number[][]): Uint8Array => new Uint8Array(values.flatMap(([r, g, b]) => [r, g, b, 255]));
 
   it('measures image differences', () => {
-    const a = image([[0, 0, 0], [100, 100, 100]]);
+    const a = image([
+      [0, 0, 0],
+      [100, 100, 100],
+    ]);
     expect(imageDifference(a, a)).toEqual({ meanAbs: 0, psnr: Infinity, changed: 0 });
-    const b = image([[0, 0, 0], [130, 100, 100]]);
+    const b = image([
+      [0, 0, 0],
+      [130, 100, 100],
+    ]);
     const d = imageDifference(a, b);
     expect(d.meanAbs).toBeCloseTo(5);
     expect(d.changed).toBe(0.5);
@@ -150,15 +170,40 @@ describe('evaluation metrics', () => {
   });
 
   it('checks depth/mask coverage and label agreement', () => {
-    const mask = image([[3, 0, 1], [0, 0, 0]]);
+    const mask = image([
+      [3, 0, 1],
+      [0, 0, 0],
+    ]);
     expect(coverageAgreement(new Float32Array([2.5, 0]), mask)).toBe(1);
     expect(coverageAgreement(new Float32Array([2.5, 4]), mask)).toBe(0.5);
-    expect(labelAgreement(mask, image([[3, 0, 2], [0, 0, 0]]))).toBe(0.5);
+    expect(
+      labelAgreement(
+        mask,
+        image([
+          [3, 0, 2],
+          [0, 0, 0],
+        ]),
+      ),
+    ).toBe(0.5);
   });
 
   it('computes contrast and quantiles', () => {
-    expect(rmsContrast(image([[128, 128, 128], [128, 128, 128]]))).toBe(0);
-    expect(rmsContrast(image([[0, 0, 0], [255, 255, 255]]))).toBeCloseTo(0.5);
+    expect(
+      rmsContrast(
+        image([
+          [128, 128, 128],
+          [128, 128, 128],
+        ]),
+      ),
+    ).toBe(0);
+    expect(
+      rmsContrast(
+        image([
+          [0, 0, 0],
+          [255, 255, 255],
+        ]),
+      ),
+    ).toBeCloseTo(0.5);
     expect(quantile([4, 1, 3, 2], 0.5)).toBe(2.5);
     expect(median([5])).toBe(5);
   });
@@ -177,7 +222,18 @@ describe('evaluation metrics', () => {
       coverage: 1,
       labelAgreement: 1,
     };
-    const csv = reportToCsv({ scene: 's', seed: 1, trajectory: 't', width: 2, height: 2, frames: 1, repeats: 1, renderer: 'r', date: '', variants: [variant] });
+    const csv = reportToCsv({
+      scene: 's',
+      seed: 1,
+      trajectory: 't',
+      width: 2,
+      height: 2,
+      frames: 1,
+      repeats: 1,
+      renderer: 'r',
+      date: '',
+      variants: [variant],
+    });
     const lines = csv.trim().split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain('"All effects, ""on"""');

@@ -1,5 +1,10 @@
 /** Returns a vertically flipped copy (WebGL readback is bottom-up). */
-export function flipRows<T extends Uint8Array | Float32Array>(data: T, width: number, height: number, channels: number): T {
+export function flipRows<T extends Uint8Array | Float32Array>(
+  data: T,
+  width: number,
+  height: number,
+  channels: number,
+): T {
   const rowLength = width * channels;
   const out = new (data.constructor as { new (n: number): T })(data.length);
   for (let y = 0; y < height; y++) {

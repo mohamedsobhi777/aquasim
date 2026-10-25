@@ -1,12 +1,8 @@
-import * as THREE from "three";
+import * as THREE from 'three';
 
-import type { RandomFunc } from "../types";
+import type { RandomFunc } from '../types';
 
-export function randRange(params: {
-  a: number;
-  b: number;
-  randFn: RandomFunc;
-}) {
+export function randRange(params: { a: number; b: number; randFn: RandomFunc }) {
   return params.a + (params.b - params.a) * params.randFn();
 }
 
@@ -20,13 +16,13 @@ export function randMultipleWithMinDist(params: {
   const { a, b, d, N, randFn } = params;
 
   if (!Number.isInteger(N) || N < 0) {
-    throw new RangeError("N must be a non-negative integer");
+    throw new RangeError('N must be a non-negative integer');
   }
   if (!(d >= 0)) {
-    throw new RangeError("d must be >= 0");
+    throw new RangeError('d must be >= 0');
   }
   if (!(b > a)) {
-    throw new RangeError("b must be greater than a");
+    throw new RangeError('b must be greater than a');
   }
   if (N === 0) {
     return [];
@@ -35,9 +31,7 @@ export function randMultipleWithMinDist(params: {
   // Room left after setting aside the (N-1) gaps of size d.
   const free = b - a - (N - 1) * d;
   if (free <= 0) {
-    throw new RangeError(
-      `Impossible: need (N-1)*d < b-a, got ${(N - 1) * d} >= ${b - a}`,
-    );
+    throw new RangeError(`Impossible: need (N-1)*d < b-a, got ${(N - 1) * d} >= ${b - a}`);
   }
 
   // 1) N uniform offsets in [0, free), sorted
@@ -52,11 +46,7 @@ export function randMultipleWithMinDist(params: {
   return offsets.map((x, i) => a + x + i * d);
 }
 
-export function projectPointOnVec(
-  p: THREE.Vector3,
-  a: THREE.Vector3,
-  vecFromA: THREE.Vector3,
-): THREE.Vector3 {
+export function projectPointOnVec(p: THREE.Vector3, a: THREE.Vector3, vecFromA: THREE.Vector3): THREE.Vector3 {
   return p.clone().sub(a).projectOnVector(vecFromA).add(a);
 }
 
@@ -78,9 +68,7 @@ export function projectPointOnPlane(
 
   const lengthSq = normal.lengthSq();
   if (lengthSq < 1e-12) {
-    throw new Error(
-      "projectPointOnPlane: OA and OB are parallel (or zero), plane is undefined",
-    );
+    throw new Error('projectPointOnPlane: OA and OB are parallel (or zero), plane is undefined');
   }
   normal.normalize();
 

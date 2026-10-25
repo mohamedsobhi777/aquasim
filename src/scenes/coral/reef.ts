@@ -1,17 +1,13 @@
-import * as THREE from "three";
-import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import * as THREE from 'three';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-import { createRng, hashString, weightedPick } from "../../core/rng";
+import { createRng, hashString, weightedPick } from '../../core/rng';
 
-import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI } from "./const";
-import type { RandomFunc } from "./types";
+import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI } from './const';
+import type { RandomFunc } from './types';
 
-import {
-  projectPointOnVec,
-  randMultipleWithMinDist,
-  randRange
-} from "./lib/math";
-import FastNoiseLite from "../../vendor/fastnoise-lite";
+import { projectPointOnVec, randMultipleWithMinDist, randRange } from './lib/math';
+import FastNoiseLite from '../../vendor/fastnoise-lite';
 
 class GeometryMerger {
   listGeom: Array<THREE.BufferGeometry | InstancedGeometryCollection> = [];
@@ -28,7 +24,7 @@ class GeometryMerger {
     for (const geom of this.listGeom) {
       if (geom instanceof THREE.BufferGeometry) {
         listBufferGeom.push(geom);
-      } else if ("listMat4" in geom) {
+      } else if ('listMat4' in geom) {
         const collection = geom as InstancedGeometryCollection;
 
         const mat4 = new THREE.Matrix4();
@@ -101,14 +97,7 @@ export function branchingCoral_generate(params: {
     const capCurve_baseCpFactor = 0.5;
     const capCurve_tipCpFactor = 0.1;
 
-    const {
-      capHeight,
-      tube_radius,
-      tube_radialSegCnt,
-      tube_tubeSegCnt,
-      tube_geom,
-      tube_curve,
-    } = params;
+    const { capHeight, tube_radius, tube_radialSegCnt, tube_tubeSegCnt, tube_geom, tube_curve } = params;
 
     const cap_curvePath = new THREE.Path();
     cap_curvePath.moveTo(tube_radius, 0);
@@ -121,10 +110,7 @@ export function branchingCoral_generate(params: {
       capHeight,
     );
 
-    const tubeCap_geom = new THREE.LatheGeometry(
-      cap_curvePath.getPoints(capCurve_divisionCnt),
-      tube_radialSegCnt,
-    );
+    const tubeCap_geom = new THREE.LatheGeometry(cap_curvePath.getPoints(capCurve_divisionCnt), tube_radialSegCnt);
 
     const T = tube_geom.tangents[tube_tubeSegCnt].clone();
     const N = tube_geom.normals[tube_tubeSegCnt].clone();
@@ -191,20 +177,9 @@ export function branchingCoral_generate(params: {
         }),
       );
 
-    const tube_curve = new THREE.CubicBezierCurve3(
-      root_pt,
-      originCpt,
-      ceilCpt,
-      ceil_pt,
-    );
+    const tube_curve = new THREE.CubicBezierCurve3(root_pt, originCpt, ceilCpt, ceil_pt);
 
-    const tube_geom = new THREE.TubeGeometry(
-      tube_curve,
-      tube_tubeSegCnt,
-      radius,
-      tube_radialSegCnt,
-      false,
-    );
+    const tube_geom = new THREE.TubeGeometry(tube_curve, tube_tubeSegCnt, radius, tube_radialSegCnt, false);
 
     const tubeCap_geom = branchTube_cap_createGeom({
       capHeight: capHeight,
@@ -215,10 +190,7 @@ export function branchingCoral_generate(params: {
       tube_curve: tube_curve,
     });
 
-    const tubeFinal_geom = BufferGeometryUtils.mergeGeometries([
-      tube_geom,
-      tubeCap_geom,
-    ]);
+    const tubeFinal_geom = BufferGeometryUtils.mergeGeometries([tube_geom, tubeCap_geom]);
 
     return {
       geom: tubeFinal_geom,
@@ -226,7 +198,7 @@ export function branchingCoral_generate(params: {
       tube_geom: tube_geom,
       tube_radialSegCnt: tube_radialSegCnt,
       tube_radius: radius,
-      id: params.id ?? "",
+      id: params.id ?? '',
     };
   };
 
@@ -255,10 +227,7 @@ export function branchingCoral_generate(params: {
     const forward_upAngle_rad = forward_dir.angleTo(UP_DIR);
     const ceil_upAngle_rad = randRange({
       a: -branch_upDirAngleConstraint_deg * DEG2RAD,
-      b: Math.min(
-        branch_upDirAngleConstraint_deg * DEG2RAD,
-        forward_upAngle_rad,
-      ),
+      b: Math.min(branch_upDirAngleConstraint_deg * DEG2RAD, forward_upAngle_rad),
       randFn,
     });
 
@@ -278,7 +247,7 @@ export function branchingCoral_generate(params: {
       ceil_pt: ceil_pt.applyAxisAngle(UP_DIR, rand_rot),
       radius,
       randFn,
-      id: "0",
+      id: '0',
     });
 
     return branch;
@@ -309,9 +278,7 @@ export function branchingCoral_generate(params: {
       const x1 = x - (curGrowthLevel - growthLevelCnt) * d;
       const f_x1 = Math.pow(expoFn_base, x1) - expoFn_yDownShift;
 
-      const x2 =
-        branchingPoint_maxCnt -
-        weightDecayFactor * (x1 - branchingPoint_maxCnt);
+      const x2 = branchingPoint_maxCnt - weightDecayFactor * (x1 - branchingPoint_maxCnt);
       const g_x2 = Math.pow(expoFn_base, x2) - expoFn_yDownShift;
 
       const w = Math.min(f_x1, g_x2);
@@ -346,10 +313,7 @@ export function branchingCoral_generate(params: {
     return choice;
   };
 
-  const branchingLocation_generate = (params: {
-    branchingPointCnt: number;
-    randFn: RandomFunc;
-  }) => {
+  const branchingLocation_generate = (params: { branchingPointCnt: number; randFn: RandomFunc }) => {
     const locationConstraints_ratio = [0.05, 0.9];
     const locationDistBetweenConstraint = 0.1;
 
@@ -368,10 +332,7 @@ export function branchingCoral_generate(params: {
     return listLocation;
   };
 
-  const branchingRotationRad_generate = (params: {
-    branchingPointCnt: number;
-    randFn: RandomFunc;
-  }) => {
+  const branchingRotationRad_generate = (params: { branchingPointCnt: number; randFn: RandomFunc }) => {
     const branch_angularDeviationConstraint_deg = 150;
     const branch_angularDistConstraint_deg = 30;
 
@@ -406,15 +367,7 @@ export function branchingCoral_generate(params: {
     const branch_ceilingHeightMin = 0.1;
     const branch_ceilDeviationFromParentConstraints = [-0.3, 0.1];
 
-    const {
-      parent,
-      parent_growthLevel,
-      locationIdx,
-      location,
-      rotation_rad,
-      queue,
-      randFn,
-    } = params;
+    const { parent, parent_growthLevel, locationIdx, location, rotation_rad, queue, randFn } = params;
 
     const branch_growthLevel = parent_growthLevel - 1;
 
@@ -451,18 +404,12 @@ export function branchingCoral_generate(params: {
 
     const branch_root_pt = parent.curve.getPoint(location);
     const parent_tip_pt = parent.curve.getPoint(1);
-    const parent_tipOnUp_pt = projectPointOnVec(
-      parent_tip_pt,
-      branch_root_pt,
-      UP_DIR,
-    );
+    const parent_tipOnUp_pt = projectPointOnVec(parent_tip_pt, branch_root_pt, UP_DIR);
     const branch_ceilingHeight_upperBound =
-      parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) +
-      branch_ceilDeviationFromParentConstraints[1];
+      parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) + branch_ceilDeviationFromParentConstraints[1];
 
     let branch_ceilingHeight_lowerBound =
-      parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) +
-      branch_ceilDeviationFromParentConstraints[0];
+      parent_tipOnUp_pt.clone().distanceTo(branch_root_pt) + branch_ceilDeviationFromParentConstraints[0];
     if (branch_ceilingHeight_lowerBound <= 0) {
       branch_ceilingHeight_lowerBound = branch_ceilingHeightMin;
     }
@@ -526,14 +473,9 @@ export function branchingCoral_generate(params: {
       //   ceilingHeight.toFixed(3),
       // );
 
-      ceil_pt
-        .sub(branch_root_pt)
-        .applyAxisAngle(UP_DIR, rotation_rad)
-        .add(branch_root_pt);
+      ceil_pt.sub(branch_root_pt).applyAxisAngle(UP_DIR, rotation_rad).add(branch_root_pt);
 
-      const forward_vec = parent_forwardDir
-        .clone()
-        .applyAxisAngle(UP_DIR, rotation_rad);
+      const forward_vec = parent_forwardDir.clone().applyAxisAngle(UP_DIR, rotation_rad);
 
       const branch = branchTube_generate({
         ceil_pt: ceil_pt,
@@ -550,11 +492,7 @@ export function branchingCoral_generate(params: {
     }
   };
 
-  const growCoral = (params: {
-    rootBranch: CoralBranchTube;
-    merger: GeometryMerger;
-    randFn: RandomFunc;
-  }) => {
+  const growCoral = (params: { rootBranch: CoralBranchTube; merger: GeometryMerger; randFn: RandomFunc }) => {
     const { rootBranch, merger, randFn } = params;
 
     let queue: Array<growCoral_QueueItem> = [];
@@ -627,15 +565,7 @@ export function branchingCoral_generate(params: {
   };
   // @endregion [sub]
 
-  const {
-    seedHash,
-    root_pt,
-    root_normalVec,
-    root_radius,
-    material,
-    root_distToCeil,
-    growthLevelCnt,
-  } = params;
+  const { seedHash, root_pt, root_normalVec, root_radius, material, root_distToCeil, growthLevelCnt } = params;
   const randFn = createRng(hashString(seedHash)).next;
 
   const merger = new GeometryMerger();
@@ -655,10 +585,7 @@ export function branchingCoral_generate(params: {
 
   const rootBranchTube_finalGeom = merger.merge();
 
-  const rootBranchTube_mesh = new THREE.Mesh(
-    rootBranchTube_finalGeom,
-    material,
-  );
+  const rootBranchTube_mesh = new THREE.Mesh(rootBranchTube_finalGeom, material);
 
   return rootBranchTube_mesh;
 }
@@ -698,10 +625,7 @@ function branchTube_createThorns(params: {
    *  - widest point has x = radius
    * LatheGeometry revolves around +Y => thorn local "up" is +Y.
    */
-  const thorn_createGeom = (
-    radius: number,
-    height: number,
-  ): THREE.LatheGeometry => {
+  const thorn_createGeom = (radius: number, height: number): THREE.LatheGeometry => {
     const curve_baseCpFactor = 0.2;
     const curve_tipCpFactor = 0.8;
 
@@ -716,9 +640,7 @@ function branchTube_createThorns(params: {
       new THREE.Vector2(0, 1),
     );
 
-    const curve_pts = curve
-      .getPoints(curve_divisionCnt)
-      .map((p) => new THREE.Vector2(p.x * radius, p.y * height));
+    const curve_pts = curve.getPoints(curve_divisionCnt).map((p) => new THREE.Vector2(p.x * radius, p.y * height));
 
     return new THREE.LatheGeometry(curve_pts, lathe_segCnt);
   };
@@ -763,18 +685,12 @@ function branchTube_createThorns(params: {
     // Displacement vector A -> B on the surface (toward tip).
     // For an offset surface S(u) = C(u) + r*n(u) with rotation-minimizing frames,
     // dS/du is parallel to T; project onto the tangent plane for safety.
-    const d = new THREE.Vector3()
-      .copy(T)
-      .addScaledVector(n, -T.dot(n))
-      .normalize();
+    const d = new THREE.Vector3().copy(T).addScaledVector(n, -T.dot(n)).normalize();
 
     // Up vector: angle `tilt` away from d, rotated toward the outward normal.
     //   tilt = PI/2 -> perpendicular to surface
     //   tilt -> 0   -> lying flat, pointing toward the tip
-    const up = new THREE.Vector3()
-      .addScaledVector(d, cosTilt)
-      .addScaledVector(n, sinTilt)
-      .normalize();
+    const up = new THREE.Vector3().addScaledVector(d, cosTilt).addScaledVector(n, sinTilt).normalize();
 
     // Orthonormal basis with local +Y = up
     const xAx = new THREE.Vector3().crossVectors(n, d).normalize();
@@ -807,7 +723,7 @@ function branchTube_createThorns(params: {
   const geom = thorn_createGeom(thorn_radius, thorn_height);
 
   if (thorn_spacing <= 0) {
-    throw new Error("thorn_spacing must be positive");
+    throw new Error('thorn_spacing must be positive');
   }
 
   // ---------------------------------------------------------------------------
@@ -843,8 +759,7 @@ function branchTube_createThorns(params: {
   //  - tilted base disc lifts one edge by thorn_radius * cos(tilt)
   //  - faceted tube lies slightly inside the ideal cylinder between vertices
   const facetInset = tube_radius * (1 - Math.cos(PI / tube_radialSegCnt));
-  const sink =
-    EMBED_FACTOR * thorn_radius * Math.cos(thorn_tiltAngle_rad) + facetInset;
+  const sink = EMBED_FACTOR * thorn_radius * Math.cos(thorn_tiltAngle_rad) + facetInset;
 
   const cosTilt = Math.cos(thorn_tiltAngle_rad);
   const sinTilt = Math.sin(thorn_tiltAngle_rad);
@@ -872,10 +787,7 @@ function branchTube_createThorns(params: {
       const theta = thetaOffset + j * dTheta;
 
       // Same parametrization as TubeGeometry: normal = cos*N + sin*B
-      n.set(0, 0, 0)
-        .addScaledVector(N, Math.cos(theta))
-        .addScaledVector(B, Math.sin(theta))
-        .normalize();
+      n.set(0, 0, 0).addScaledVector(N, Math.cos(theta)).addScaledVector(B, Math.sin(theta)).normalize();
 
       A.copy(C).addScaledVector(n, tube_radius);
 
@@ -903,11 +815,7 @@ export function brainCoral_generate(params: {
   const brainPatternTextureImg_minSizeConstraint = 256;
 
   // #region [sub]
-  const brainPatternTexture_generate = (params: {
-    sphere_xSize: number;
-    sphere_zSize: number;
-    seedHash: string;
-  }) => {
+  const brainPatternTexture_generate = (params: { sphere_xSize: number; sphere_zSize: number; seedHash: string }) => {
     const noise_binaryThreshold = -0.01;
 
     const { seedHash, sphere_xSize, sphere_zSize } = params;
@@ -926,15 +834,9 @@ export function brainCoral_generate(params: {
     let img_height = brainPatternTextureImg_minSizeConstraint;
 
     if (sphere_xSize > sphere_zSize) {
-      img_width = Math.ceil(
-        (sphere_xSize / sphere_zSize) *
-          brainPatternTextureImg_minSizeConstraint,
-      );
+      img_width = Math.ceil((sphere_xSize / sphere_zSize) * brainPatternTextureImg_minSizeConstraint);
     } else if (sphere_zSize > sphere_xSize) {
-      img_height = Math.ceil(
-        (sphere_zSize / sphere_xSize) *
-          brainPatternTextureImg_minSizeConstraint,
-      );
+      img_height = Math.ceil((sphere_zSize / sphere_xSize) * brainPatternTextureImg_minSizeConstraint);
     }
 
     const imgData = new Uint8Array(img_height * img_width);
@@ -954,12 +856,7 @@ export function brainCoral_generate(params: {
       }
     }
 
-    const textureData = new THREE.DataArrayTexture(
-      imgData,
-      img_width,
-      img_height,
-      1,
-    );
+    const textureData = new THREE.DataArrayTexture(imgData, img_width, img_height, 1);
     return textureData;
   };
 
@@ -975,10 +872,7 @@ export function brainCoral_generate(params: {
     if (horizontalDistance < 1e-8) {
       uv.set(0.5, 0.5);
     } else {
-      uv.set(
-        0.5 + (imageRadius * pt.x) / horizontalDistance,
-        0.5 - (imageRadius * pt.z) / horizontalDistance,
-      );
+      uv.set(0.5 + (imageRadius * pt.x) / horizontalDistance, 0.5 - (imageRadius * pt.z) / horizontalDistance);
     }
 
     return uv;
@@ -995,8 +889,7 @@ export function brainCoral_generate(params: {
     const taubinSmooth_lambdaConstraint = 1;
     const taubinSmooth_muConstraint = -0.53;
 
-    const { sphere, textureData, sphere_widthSegCnt, sphere_heightSegCnt } =
-      params;
+    const { sphere, textureData, sphere_widthSegCnt, sphere_heightSegCnt } = params;
 
     const attr_position = sphere.attributes.position;
     const attr_normal = sphere.attributes.normal;
@@ -1005,11 +898,7 @@ export function brainCoral_generate(params: {
     const offsetLen_arr = new Float32Array(attr_position.count);
 
     for (let i = 0; i < attr_position.count; i++) {
-      const pt = new THREE.Vector3(
-        attr_position.getX(i),
-        attr_position.getY(i),
-        attr_position.getZ(i),
-      );
+      const pt = new THREE.Vector3(attr_position.getX(i), attr_position.getY(i), attr_position.getZ(i));
 
       const i_canon = sphereGeometry_getCanonicalIndex({
         i,
@@ -1046,16 +935,8 @@ export function brainCoral_generate(params: {
     });
 
     for (let i = 0; i < attr_position.count; i++) {
-      const pt = new THREE.Vector3(
-        attr_position.getX(i),
-        attr_position.getY(i),
-        attr_position.getZ(i),
-      );
-      const normal = new THREE.Vector3(
-        attr_normal.getX(i),
-        attr_normal.getY(i),
-        attr_normal.getZ(i),
-      ).normalize();
+      const pt = new THREE.Vector3(attr_position.getX(i), attr_position.getY(i), attr_position.getZ(i));
+      const normal = new THREE.Vector3(attr_normal.getX(i), attr_normal.getY(i), attr_normal.getZ(i)).normalize();
       pt.addScaledVector(normal, offsetLen_arr[i]);
       attr_position.setXYZ(i, pt.x, pt.y, pt.z);
     }
@@ -1065,15 +946,7 @@ export function brainCoral_generate(params: {
   };
   // #endregion [sub]
 
-  const {
-    seedHash,
-    material,
-    root_pt,
-    x_size,
-    z_size,
-    root_normalVec,
-    height,
-  } = params;
+  const { seedHash, material, root_pt, x_size, z_size, root_normalVec, height } = params;
 
   let sphere_widthSegCnt = 100;
   let sphere_heightSegCnt = 100;
@@ -1086,15 +959,7 @@ export function brainCoral_generate(params: {
     sphere_heightSegCnt = Math.floor((z_size / x_size) * sphere_widthSegCnt);
   }
 
-  const sphere = new THREE.SphereGeometry(
-    1,
-    sphere_widthSegCnt,
-    sphere_heightSegCnt,
-    0,
-    TAU,
-    0,
-    PI / 2,
-  );
+  const sphere = new THREE.SphereGeometry(1, sphere_widthSegCnt, sphere_heightSegCnt, 0, TAU, 0, PI / 2);
   sphere.scale(x_size / 2, height, z_size / 2);
 
   const brainPatternTextureData = brainPatternTexture_generate({
@@ -1109,23 +974,13 @@ export function brainCoral_generate(params: {
     sphere_heightSegCnt,
   });
 
-  const rotation_axisVec = new THREE.Vector3().crossVectors(
-    UP_DIR,
-    root_normalVec,
-  );
+  const rotation_axisVec = new THREE.Vector3().crossVectors(UP_DIR, root_normalVec);
   const rotation_angleRad = UP_DIR.angleTo(root_normalVec);
 
   sphere.applyMatrix4(
     new THREE.Matrix4()
-      .premultiply(
-        new THREE.Matrix4().makeRotationAxis(
-          rotation_axisVec,
-          rotation_angleRad,
-        ),
-      )
-      .premultiply(
-        new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
-      ),
+      .premultiply(new THREE.Matrix4().makeRotationAxis(rotation_axisVec, rotation_angleRad))
+      .premultiply(new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z)),
   );
 
   const mesh = new THREE.Mesh(sphere, material);
@@ -1133,11 +988,7 @@ export function brainCoral_generate(params: {
   return mesh;
 }
 
-function sphereGeometry_getCanonicalIndex(params: {
-  i: number;
-  widthSegCnt: number;
-  heightSegCnt: number;
-}): number {
+function sphereGeometry_getCanonicalIndex(params: { i: number; widthSegCnt: number; heightSegCnt: number }): number {
   const { i, widthSegCnt, heightSegCnt } = params;
   const rowSize = widthSegCnt + 1;
   const iy = Math.floor(i / rowSize);
@@ -1157,10 +1008,7 @@ function sphereGeometry_getCanonicalIndex(params: {
 /**
  * Currently only support REDFormat
  */
-function DataArrayTexture_getColor(params: {
-  data: THREE.DataArrayTexture;
-  uv: THREE.Vector2;
-}): number {
+function DataArrayTexture_getColor(params: { data: THREE.DataArrayTexture; uv: THREE.Vector2 }): number {
   // #region [sub]
   const readColor = (x: number, y: number) => {
     x = THREE.MathUtils.clamp(x, 0, data.image.width - 1);
@@ -1211,11 +1059,7 @@ function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
   mu?: number;
 }): T {
   // #region [sub]
-  const addNeighbor = (
-    sets: Map<number, Set<number>>,
-    a: number,
-    b: number,
-  ) => {
+  const addNeighbor = (sets: Map<number, Set<number>>, a: number, b: number) => {
     if (a === b) {
       return;
     }
@@ -1240,13 +1084,7 @@ function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
     return { min, max };
   };
 
-  const smoothPass = (
-    h: T,
-    tmp: T,
-    canon: number[],
-    nb: Map<number, number[]>,
-    factor: number,
-  ) => {
+  const smoothPass = (h: T, tmp: T, canon: number[], nb: Map<number, number[]>, factor: number) => {
     for (const k of canon) {
       const ns = nb.get(k)!;
       let s = 0;
@@ -1266,14 +1104,7 @@ function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
   };
   // #endregion [sub]
 
-  const {
-    geom,
-    H,
-    getCanonicalIndex,
-    iterations = 5,
-    lambda = 0.5,
-    mu = -0.53,
-  } = params;
+  const { geom, H, getCanonicalIndex, iterations = 5, lambda = 0.5, mu = -0.53 } = params;
 
   const ptCnt = geom.attributes.position.count;
   const geom_index = geom.index ? geom.index.array : null;
@@ -1312,8 +1143,7 @@ function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
 
   // 3. Restore the original peak/valley range
   const smoothed = computeRange(h, canon);
-  const scale =
-    (original.max - original.min) / (smoothed.max - smoothed.min || 1);
+  const scale = (original.max - original.min) / (smoothed.max - smoothed.min || 1);
 
   // 4. Update H in-place
   for (let i = 0; i < ptCnt; i++) {

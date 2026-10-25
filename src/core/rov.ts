@@ -43,7 +43,14 @@ export class Rov {
     this.body.add(this.camera);
 
     this.lamps = [-1, 1].map((side) => {
-      const lamp = new THREE.SpotLight(0xfff4e0, config.lampIntensity, LAMP_RANGE, config.lampAngle, config.lampPenumbra, 2);
+      const lamp = new THREE.SpotLight(
+        0xfff4e0,
+        config.lampIntensity,
+        LAMP_RANGE,
+        config.lampAngle,
+        config.lampPenumbra,
+        2,
+      );
       lamp.name = side < 0 ? 'lamp-left' : 'lamp-right';
       lamp.position.set((side * config.lampSpacing) / 2, 0.12, 0.05);
       lamp.target.position.set(0, -0.8, -10);
@@ -112,16 +119,24 @@ export class RovController {
     window.addEventListener('keydown', (e) => this.onKey(e, true), { signal });
     window.addEventListener('keyup', (e) => this.onKey(e, false), { signal });
     window.addEventListener('blur', () => this.keys.clear(), { signal });
-    element.addEventListener('pointerdown', (e) => {
-      this.dragging = true;
-      element.setPointerCapture(e.pointerId);
-    }, { signal });
+    element.addEventListener(
+      'pointerdown',
+      (e) => {
+        this.dragging = true;
+        element.setPointerCapture(e.pointerId);
+      },
+      { signal },
+    );
     element.addEventListener('pointerup', () => (this.dragging = false), { signal });
-    element.addEventListener('pointermove', (e) => {
-      if (!this.dragging || !this.enabled || !this.mouseLook) return;
-      this.rov.yaw -= e.movementX * MOUSE_SENSITIVITY;
-      this.rov.pitch = THREE.MathUtils.clamp(this.rov.pitch - e.movementY * MOUSE_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
-    }, { signal });
+    element.addEventListener(
+      'pointermove',
+      (e) => {
+        if (!this.dragging || !this.enabled || !this.mouseLook) return;
+        this.rov.yaw -= e.movementX * MOUSE_SENSITIVITY;
+        this.rov.pitch = THREE.MathUtils.clamp(this.rov.pitch - e.movementY * MOUSE_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
+      },
+      { signal },
+    );
   }
 
   private onKey(e: KeyboardEvent, down: boolean): void {
@@ -141,7 +156,11 @@ export class RovController {
     }
     const { rov } = this;
     rov.yaw += this.axis('ArrowLeft', 'ArrowRight') * TURN_RATE * dt;
-    rov.pitch = THREE.MathUtils.clamp(rov.pitch + this.axis('ArrowUp', 'ArrowDown') * TURN_RATE * dt, -MAX_PITCH, MAX_PITCH);
+    rov.pitch = THREE.MathUtils.clamp(
+      rov.pitch + this.axis('ArrowUp', 'ArrowDown') * TURN_RATE * dt,
+      -MAX_PITCH,
+      MAX_PITCH,
+    );
     rov.applyYawPitch();
 
     const thrust = new THREE.Vector3(this.axis('KeyD', 'KeyA'), this.axis('KeyE', 'KeyQ'), this.axis('KeyS', 'KeyW'));

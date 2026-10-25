@@ -30,14 +30,27 @@ interface Chunk {
   errors: number[];
 }
 
-function surfaceNormal(heightAt: (x: number, z: number) => number, x: number, z: number, target: THREE.Vector3): THREE.Vector3 {
+function surfaceNormal(
+  heightAt: (x: number, z: number) => number,
+  x: number,
+  z: number,
+  target: THREE.Vector3,
+): THREE.Vector3 {
   const dx = heightAt(x + NORMAL_STEP, z) - heightAt(x - NORMAL_STEP, z);
   const dz = heightAt(x, z + NORMAL_STEP) - heightAt(x, z - NORMAL_STEP);
   return target.set(-dx, 2 * NORMAL_STEP, -dz).normalize();
 }
 
 /** Height of the triangulated chunk grid at (x, z), matching the index layout used in chunkGeometry. */
-function gridHeight(heights: Float32Array, n: number, x0: number, z0: number, step: number, x: number, z: number): number {
+function gridHeight(
+  heights: Float32Array,
+  n: number,
+  x0: number,
+  z0: number,
+  step: number,
+  x: number,
+  z: number,
+): number {
   const fx = THREE.MathUtils.clamp((x - x0) / step, 0, n - 1e-6);
   const fz = THREE.MathUtils.clamp((z - z0) / step, 0, n - 1e-6);
   const i = Math.floor(fx);
@@ -51,7 +64,13 @@ function gridHeight(heights: Float32Array, n: number, x0: number, z0: number, st
     : h(i + 1, j + 1) + (1 - u) * (h(i, j + 1) - h(i + 1, j + 1)) + (1 - v) * (h(i + 1, j) - h(i + 1, j + 1));
 }
 
-function chunkGeometry(options: TerrainLodOptions, x0: number, z0: number, chunkSize: number, n: number): { geometry: THREE.BufferGeometry; error: number } {
+function chunkGeometry(
+  options: TerrainLodOptions,
+  x0: number,
+  z0: number,
+  chunkSize: number,
+  n: number,
+): { geometry: THREE.BufferGeometry; error: number } {
   const { heightAt, colorAt, size } = options;
   const step = chunkSize / n;
   const half = size / 2;
@@ -84,7 +103,8 @@ function chunkGeometry(options: TerrainLodOptions, x0: number, z0: number, chunk
   }
   const at = (i: number, j: number): number => j * (n + 1) + i;
   for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) indices.push(at(i, j), at(i, j + 1), at(i + 1, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j));
+    for (let i = 0; i < n; i++)
+      indices.push(at(i, j), at(i, j + 1), at(i + 1, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j));
   }
 
   // Vertical error of this level against the height field.

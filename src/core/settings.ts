@@ -7,7 +7,15 @@ export interface SimSettings {
   sceneId: string;
   seed: number;
   water: { presetId: string; turbidity: number; enabled: boolean; daylight: number };
-  lamps: { on: boolean; intensity: number; angleDeg: number; spacing: number; scatter: number; shadows: boolean; beamShadows: boolean };
+  lamps: {
+    on: boolean;
+    intensity: number;
+    angleDeg: number;
+    spacing: number;
+    scatter: number;
+    shadows: boolean;
+    beamShadows: boolean;
+  };
   particles: { count: number; currentSpeed: number; wake: boolean };
   /** Sediment lifted by the thrusters when flying low; strength 0 turns it off. */
   sediment: { enabled: boolean; strength: number };

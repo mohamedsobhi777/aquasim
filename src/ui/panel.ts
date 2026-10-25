@@ -16,7 +16,10 @@ export function createPanel(app: AquaSimApp): GUI {
   };
 
   const sceneFolder = gui.addFolder('Scene');
-  sceneFolder.add(s, 'sceneId', Object.fromEntries(SCENES.map((m) => [m.label, m.id]))).name('scenario').onFinishChange(() => app.loadScene());
+  sceneFolder
+    .add(s, 'sceneId', Object.fromEntries(SCENES.map((m) => [m.label, m.id])))
+    .name('scenario')
+    .onFinishChange(() => app.loadScene());
   sceneFolder.add(s, 'seed', 0, 9999, 1).onFinishChange(() => {
     app.loadScene();
     gui.controllersRecursive().forEach((c) => c.updateDisplay());
@@ -52,12 +55,13 @@ export function createPanel(app: AquaSimApp): GUI {
     .name('camera [V]')
     .onChange((mode: CameraMode) => app.setCameraMode(mode));
   window.addEventListener('keydown', (e) => {
-    if (e.code !== 'KeyV' || e.repeat || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if (e.code !== 'KeyV' || e.repeat || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement)
+      return;
     app.setCameraMode(s.render.camera === 'robot' ? 'world' : 'robot');
     cameraController.updateDisplay();
   });
   view.add(s.render, 'lod').name('level of detail');
-  view.add(s.render, 'view', { 'RGB camera': 'rgb', 'Depth': 'depth', 'Semantic / instances': 'semantic' });
+  view.add(s.render, 'view', { 'RGB camera': 'rgb', Depth: 'depth', 'Semantic / instances': 'semantic' });
   view.add(s.render, 'exposure', 0.1, 4, 0.05).onChange(apply);
   view.add(s.camera, 'fov', 30, 110, 1).name('vertical fov').onChange(apply);
 

@@ -44,7 +44,10 @@ function planRoute(rng: Rng, heightAt: (x: number, z: number) => number): THREE.
   const plan = new THREE.SplineCurve(waypoints);
   const count = Math.ceil(plan.getLength() / SAMPLE_STEP);
   const xz = plan.getSpacedPoints(count);
-  const heights = restPipeOnGround(xz.map((p) => heightAt(p.x, p.y)), PIPE.radius);
+  const heights = restPipeOnGround(
+    xz.map((p) => heightAt(p.x, p.y)),
+    PIPE.radius,
+  );
   return xz.map((p, i) => new THREE.Vector3(p.x, heights[i], p.y));
 }
 
@@ -57,7 +60,11 @@ export function createPipeline(rng: Rng, heightAt: (x: number, z: number) => num
   const coating = patchUnderwater(
     new THREE.MeshStandardMaterial({
       roughness: 0.9,
-      map: makeFoulingTexture(rng, { base: '#6f7268', blotches: ['#4f5a3a', '#8d8a78', '#3e4436', '#a7a28c'], blotchCount: 200, grain: 0.15 }, [60, 1]),
+      map: makeFoulingTexture(
+        rng,
+        { base: '#6f7268', blotches: ['#4f5a3a', '#8d8a78', '#3e4436', '#a7a28c'], blotchCount: 200, grain: 0.15 },
+        [60, 1],
+      ),
     }),
   );
   const pipe = new THREE.Mesh(new THREE.TubeGeometry(curve, route.length * 2, PIPE.radius, 18, false), coating);
@@ -68,7 +75,13 @@ export function createPipeline(rng: Rng, heightAt: (x: number, z: number) => num
   // Riser: bends up from the pipeline end and follows the jacket leg.
   const end = route[route.length - 1];
   const tangent = curve.getTangentAt(1);
-  const riserPoints = [end, end.clone().addScaledVector(tangent, 2.2).setY(end.y + 0.4)];
+  const riserPoints = [
+    end,
+    end
+      .clone()
+      .addScaledVector(tangent, 2.2)
+      .setY(end.y + 0.4),
+  ];
   for (let y = SEABED_Y + 3; y <= RISER_TOP_Y; y += 3) riserPoints.push(riserPoint(y));
   const riserCurve = new THREE.CatmullRomCurve3(riserPoints, false, 'centripetal');
   const riser = new THREE.Mesh(new THREE.TubeGeometry(riserCurve, 160, PIPE.radius, 18, false), coating);
@@ -88,8 +101,12 @@ export function createPipeline(rng: Rng, heightAt: (x: number, z: number) => num
       if (ua < 1) anodes.push(collarAt(curve.getPointAt(ua), curve.getTangentAt(ua), PIPE.radius * 1.16, 0.6));
     }
   }
-  const jointMaterial = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0x5a5c55, roughness: 0.7, metalness: 0.3 }));
-  const anodeMaterial = patchUnderwater(new THREE.MeshStandardMaterial({ color: 0xb9b8ae, roughness: 0.45, metalness: 0.6 }));
+  const jointMaterial = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0x5a5c55, roughness: 0.7, metalness: 0.3 }),
+  );
+  const anodeMaterial = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0xb9b8ae, roughness: 0.45, metalness: 0.6 }),
+  );
   const jointMesh = instanced(ring, jointMaterial, joints, 'field-joints');
   const anodeMesh = instanced(ring, anodeMaterial, anodes, 'anodes');
   tagSemantic(jointMesh, CLASSES.fieldJoint.id);

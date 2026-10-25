@@ -100,7 +100,14 @@ export class AquaSimApp {
     excludeFromLabels(this.backdrop);
 
     this.downwelling.position.set(0.3, 1, 0.2);
-    this.scene.add(this.hemisphere, this.downwelling, this.backdrop, this.rov.body, this.particles.points, this.sediment.mesh);
+    this.scene.add(
+      this.hemisphere,
+      this.downwelling,
+      this.backdrop,
+      this.rov.body,
+      this.particles.points,
+      this.sediment.mesh,
+    );
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -241,7 +248,14 @@ export class AquaSimApp {
     this.particles.sync(this.clock.now, position, current, pixelScale);
     this.particles.setWake(this.clock.now, this.track.all, this.settings.particles.wake);
     const { enabled, strength } = this.settings.sediment;
-    this.sediment.sync(this.clock.now, this.track.all, enabled ? strength : 0, current, this.scenario.groundHeight, position);
+    this.sediment.sync(
+      this.clock.now,
+      this.track.all,
+      enabled ? strength : 0,
+      current,
+      this.scenario.groundHeight,
+      position,
+    );
     syncLamps(camera, this.rov.lamps);
   }
 
@@ -354,9 +368,14 @@ export class AquaSimApp {
     });
   }
 
-  private async runCapture(trajectory: Trajectory | null, body: (writer: DatasetWriter) => Promise<void>): Promise<void> {
+  private async runCapture(
+    trajectory: Trajectory | null,
+    body: (writer: DatasetWriter) => Promise<void>,
+  ): Promise<void> {
     if (this.capturing) throw new Error('A capture is already running');
-    const sink = await this.openSink(`aquasim_${this.settings.sceneId}_${trajectory?.name ?? 'snapshot'}_${timestamp()}`);
+    const sink = await this.openSink(
+      `aquasim_${this.settings.sceneId}_${trajectory?.name ?? 'snapshot'}_${timestamp()}`,
+    );
     const writer = new DatasetWriter(sink, this.manifest(trajectory));
     await this.exclusive(trajectory !== null, async () => {
       await body(writer);
@@ -398,7 +417,14 @@ export class AquaSimApp {
    * image change and label checks per variant. Downloads JSON + CSV.
    */
   async evaluate(trajectory: Trajectory): Promise<EvaluationReport> {
-    const report = await this.exclusive(true, () => runEvaluation(this.evalHost(), trajectory, { size: this.settings.capture, ...this.settings.evaluation }, this.onStatus));
+    const report = await this.exclusive(true, () =>
+      runEvaluation(
+        this.evalHost(),
+        trajectory,
+        { size: this.settings.capture, ...this.settings.evaluation },
+        this.onStatus,
+      ),
+    );
     this.lastEvaluation = report;
     const sink = new ZipSink(`aquasim_eval_${report.scene}_${report.trajectory}_${timestamp()}.zip`);
     const encode = (text: string): Uint8Array => new TextEncoder().encode(text);

@@ -35,13 +35,19 @@ export function createJacket(rng: Rng): THREE.Group {
     new THREE.MeshStandardMaterial({
       roughness: 0.8,
       metalness: 0.2,
-      map: makeFoulingTexture(rng, { base: '#8a8f7c', blotches: ['#5d6b3c', '#a0623a', '#c9c3a8', '#4a5a40'], blotchCount: 220, grain: 0.12 }, [2, 8]),
+      map: makeFoulingTexture(
+        rng,
+        { base: '#8a8f7c', blotches: ['#5d6b3c', '#a0623a', '#c9c3a8', '#4a5a40'], blotchCount: 220, grain: 0.12 },
+        [2, 8],
+      ),
     }),
   );
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 20, 1);
   const levels = JACKET.levels.map((h) => SEABED_Y + h);
 
-  const legs = CORNERS.map((_, c) => cylinderBetween(legPoint(c, SEABED_Y - 2), legPoint(c, JACKET.topY), JACKET.legRadius));
+  const legs = CORNERS.map((_, c) =>
+    cylinderBetween(legPoint(c, SEABED_Y - 2), legPoint(c, JACKET.topY), JACKET.legRadius),
+  );
   // Thicker node cans where braces meet the legs.
   const cans = levels.flatMap((y) =>
     CORNERS.map((_, c) => {

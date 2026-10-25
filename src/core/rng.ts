@@ -40,7 +40,8 @@ export function hashString(text: string): number {
 
 /** Picks an item with probability proportional to its (non-negative) weight. */
 export function weightedPick<T>(items: readonly T[], weights: readonly number[], next: () => number): T {
-  if (items.length === 0 || items.length !== weights.length) throw new Error('weightedPick: items and weights must be non-empty and the same length');
+  if (items.length === 0 || items.length !== weights.length)
+    throw new Error('weightedPick: items and weights must be non-empty and the same length');
   const total = weights.reduce((sum, w) => sum + w, 0);
   let key = next() * total;
   for (let i = 0; i < items.length; i++) {

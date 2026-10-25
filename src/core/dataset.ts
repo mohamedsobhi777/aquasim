@@ -23,7 +23,8 @@ export interface DatasetManifest {
 
 const CONVENTIONS = {
   rgb: 'rgb/NNNNNN.png - sRGB, tone mapped, as displayed',
-  depth: 'depth/NNNNNN.npy - float32 [H, W], planar z-depth in metres along the optical axis; 0 = no surface (open water)',
+  depth:
+    'depth/NNNNNN.npy - float32 [H, W], planar z-depth in metres along the optical axis; 0 = no surface (open water)',
   semantic:
     'semantic/NNNNNN.png - R = class id, G*256 + B = instance id; 0 = water. Labels cover opaque scene surfaces only; suspended particles and water are excluded',
   pose: 'meta/NNNNNN.json - cameraToWorld_gl (three.js: x right, y up, looking -z) and cameraToWorld_cv (OpenCV: x right, y down, looking +z), column-major 4x4',
@@ -36,7 +37,7 @@ function visualiseSemantic(mask: Uint8Array, classes: readonly SemanticClass[]):
   const out = new Uint8Array(mask.length);
   for (let i = 0; i < mask.length; i += 4) {
     const color = palette.get(mask[i]) ?? [0, 0, 0];
-    const shade = mask[i] === 0 ? 1 : 0.75 + 0.25 * (((mask[i + 1] * 256 + mask[i + 2]) * 2654435761) % 256) / 255;
+    const shade = mask[i] === 0 ? 1 : 0.75 + (0.25 * (((mask[i + 1] * 256 + mask[i + 2]) * 2654435761) % 256)) / 255;
     out[i] = color[0] * shade;
     out[i + 1] = color[1] * shade;
     out[i + 2] = color[2] * shade;
@@ -101,7 +102,13 @@ export class DatasetWriter {
   async finish(): Promise<void> {
     await this.sink.write(
       'dataset.json',
-      encodeJson({ generator: 'AquaSim', created: new Date().toISOString(), frames: this.frameCount, conventions: CONVENTIONS, ...this.manifest }),
+      encodeJson({
+        generator: 'AquaSim',
+        created: new Date().toISOString(),
+        frames: this.frameCount,
+        conventions: CONVENTIONS,
+        ...this.manifest,
+      }),
     );
     await this.sink.finish();
   }
@@ -129,7 +136,10 @@ export class ZipSink implements DatasetSink {
 
 interface DirectoryHandle {
   getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<DirectoryHandle>;
-  getFileHandle(name: string, options?: { create?: boolean }): Promise<{
+  getFileHandle(
+    name: string,
+    options?: { create?: boolean },
+  ): Promise<{
     createWritable(): Promise<{ write(data: Uint8Array): Promise<void>; close(): Promise<void> }>;
   }>;
 }

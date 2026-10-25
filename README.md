@@ -69,7 +69,7 @@ trajectory captures stay deterministic.
 
 ## Evaluation
 
-Panel → Evaluation → *evaluate effects on path* replays the selected path at
+Panel → Evaluation → _evaluate effects on path_ replays the selected path at
 evenly spaced poses with time frozen, once per configuration: all effects on,
 each effect switched off in turn, no LOD, and plain rendering. Per
 configuration it records:
@@ -85,7 +85,7 @@ The results appear as a table and download as `evaluation.json` and
 `evaluation.csv` in one zip. The resolution is the capture resolution.
 Variants are interleaved per pose so GPU clock changes affect all of them
 alike. Timings vary by about ±1 ms between runs, so compare large
-differences only, or raise *timed renders / pose*.
+differences only, or raise _timed renders / pose_.
 
 ## Adding a scenario
 
@@ -111,14 +111,14 @@ deformed geometry. See the hanging rope in
 
 A capture writes one folder (Chromium folder picker) or a `.zip`:
 
-| Path | Content |
-|------|---------|
-| `rgb/NNNNNN.png` | sRGB, tone mapped, as displayed |
-| `depth/NNNNNN.npy` | float32 `[H, W]`, planar z-depth in metres; 0 = open water |
-| `semantic/NNNNNN.png` | R = class id, G·256 + B = instance id; 0 = water |
-| `meta/NNNNNN.json` | sim time, OpenCV intrinsics, camera-to-world (GL and OpenCV frames) |
-| `preview/*.png` | colourised depth and masks for inspection |
-| `dataset.json` | classes, instance table, seed, trajectory, all settings, conventions |
+| Path                  | Content                                                              |
+| --------------------- | -------------------------------------------------------------------- |
+| `rgb/NNNNNN.png`      | sRGB, tone mapped, as displayed                                      |
+| `depth/NNNNNN.npy`    | float32 `[H, W]`, planar z-depth in metres; 0 = open water           |
+| `semantic/NNNNNN.png` | R = class id, G·256 + B = instance id; 0 = water                     |
+| `meta/NNNNNN.json`    | sim time, OpenCV intrinsics, camera-to-world (GL and OpenCV frames)  |
+| `preview/*.png`       | colourised depth and masks for inspection                            |
+| `dataset.json`        | classes, instance table, seed, trajectory, all settings, conventions |
 
 Labels cover opaque scene surfaces only; water and suspended particles are
 excluded. Depth is a rendered geometric quantity, not a simulated sensor.

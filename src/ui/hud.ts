@@ -29,8 +29,14 @@ export function startHud(app: AquaSimApp, element: HTMLElement): void {
       row('pos', `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`),
       row('heading', `${heading.toFixed(0)}° · pitch ${THREE.MathUtils.radToDeg(euler.x).toFixed(0)}°`),
       row('sim', `${app.clock.now.toFixed(1)} s${app.clock.isPaused ? ' (paused)' : ''} · ${mode}`),
-      row('geometry', `${(app.lodStats.triangles / 1000).toFixed(0)}k tris (LOD ${app.settings.render.lod ? 'on' : 'off'}) · ${app.sediment.puffCount} silt puffs`),
-      row('view', `${app.settings.render.camera} camera · ${app.settings.render.view} · ${app.instanceCount} labelled instances`),
+      row(
+        'geometry',
+        `${(app.lodStats.triangles / 1000).toFixed(0)}k tris (LOD ${app.settings.render.lod ? 'on' : 'off'}) · ${app.sediment.puffCount} silt puffs`,
+      ),
+      row(
+        'view',
+        `${app.settings.render.camera} camera · ${app.settings.render.view} · ${app.instanceCount} labelled instances`,
+      ),
       status ? `<div class="status">${status.replace(/[<>&]/g, '')}</div>` : '',
       `<div class="help">${app.settings.render.camera === 'world' ? HELP_WORLD : HELP_ROBOT}</div>`,
     ].join('');

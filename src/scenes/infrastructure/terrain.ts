@@ -47,7 +47,11 @@ export function createSeabed(seed: number, rng: Rng): Seabed {
     new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.95,
-      map: makeFoulingTexture(rng, { base: '#d9d2c0', blotches: ['#a39a83', '#8c8470', '#efe9da'], blotchCount: 160, grain: 0.18 }, [40, 40]),
+      map: makeFoulingTexture(
+        rng,
+        { base: '#d9d2c0', blotches: ['#a39a83', '#8c8470', '#efe9da'], blotchCount: 160, grain: 0.18 },
+        [40, 40],
+      ),
     }),
   );
 
