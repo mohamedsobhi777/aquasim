@@ -940,18 +940,20 @@ export function brainCoral_generate(params: {
     noiseGen.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
     noiseGen.SetFrequency(0.025);
     noiseGen.SetFractalType(FastNoiseLite.FractalType.PingPong);
-    noiseGen.SetFractalPingPongStrength(2.10);
+    noiseGen.SetFractalPingPongStrength(2.1);
 
     let img_width = brainPatternTextureImg_minSizeConstraint;
     let img_height = brainPatternTextureImg_minSizeConstraint;
 
     if (sphere_xSize > sphere_zSize) {
       img_width = Math.ceil(
-        (sphere_xSize / sphere_zSize) * brainPatternTextureImg_minSizeConstraint,
+        (sphere_xSize / sphere_zSize) *
+          brainPatternTextureImg_minSizeConstraint,
       );
     } else if (sphere_zSize > sphere_xSize) {
       img_height = Math.ceil(
-        (sphere_zSize / sphere_xSize) * brainPatternTextureImg_minSizeConstraint,
+        (sphere_zSize / sphere_xSize) *
+          brainPatternTextureImg_minSizeConstraint,
       );
     }
 
@@ -1010,17 +1012,14 @@ export function brainCoral_generate(params: {
   }) => {
     const offsetLenConstraint = 0.02;
 
-    const {
-      sphere,
-      textureData,
-      sphere_widthSegCnt,
-      sphere_heightSegCnt,
-    } = params;
+    const { sphere, textureData, sphere_widthSegCnt, sphere_heightSegCnt } =
+      params;
 
     const attr_position = sphere.attributes.position;
     const attr_normal = sphere.attributes.normal;
 
-    const dict_posIdx_offsetVec: Record<number, THREE.Vector3> = {};
+    const setCanonIdx = new Set<number>();
+    const offsetLen_arr = new Float16Array(attr_position.count);
 
     for (let i = 0; i < attr_position.count; i++) {
       const pt = new THREE.Vector3(
@@ -1034,11 +1033,7 @@ export function brainCoral_generate(params: {
         widthSegCnt: sphere_widthSegCnt,
         heightSegCnt: sphere_heightSegCnt,
       });
-      let offsetVec = dict_posIdx_offsetVec[i_canon];
-
-      if (offsetVec) {
-        pt.add(offsetVec);
-        attr_position.setXYZ(i, pt.x, pt.y, pt.z);
+      if (setCanonIdx.has(i_canon)) {
         continue;
       }
 
@@ -1048,14 +1043,38 @@ export function brainCoral_generate(params: {
         uv,
       });
       const offsetLen = offsetLenConstraint * (color / 255);
-      offsetVec = new THREE.Vector3()
-        .fromBufferAttribute(attr_normal, i)
-        .normalize()
-        .multiplyScalar(offsetLen);
-      pt.add(offsetVec);
 
+      setCanonIdx.add(i_canon);
+      offsetLen_arr[i] = offsetLen;
+    }
+
+    taubinSmooth({
+      geom: sphere,
+      H: offsetLen_arr,
+      getCanonicalIndex: (i: number) =>
+        sphereGeometry_getCanonicalIndex({
+          i,
+          widthSegCnt: sphere_widthSegCnt,
+          heightSegCnt: sphere_heightSegCnt,
+        }),
+      iterations: 3,
+      lambda: 1,
+      mu: -0.53,
+    });
+
+    for (let i = 0; i < attr_position.count; i++) {
+      const pt = new THREE.Vector3(
+        attr_position.getX(i),
+        attr_position.getY(i),
+        attr_position.getZ(i),
+      );
+      const normal = new THREE.Vector3(
+        attr_normal.getX(i),
+        attr_normal.getY(i),
+        attr_normal.getZ(i),
+      ).normalize();
+      pt.addScaledVector(normal, offsetLen_arr[i]);
       attr_position.setXYZ(i, pt.x, pt.y, pt.z);
-      dict_posIdx_offsetVec[i_canon] = offsetVec;
     }
 
     sphere.computeBoundingBox();
@@ -1179,4 +1198,134 @@ function DataArrayTexture_getColor(params: {
 
   const color_out = Math.floor(bottom + (top - bottom) * ty);
   return color_out;
+}
+
+type taubinSmooth_InputArray = Float32Array | Float16Array;
+
+/**
+ * This function update H in-place
+ *
+ * @param params
+ * @returns
+ */
+function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
+  geom: THREE.BufferGeometry;
+  H: T;
+  getCanonicalIndex: (i: number) => number;
+  iterations?: number;
+  lambda?: number;
+  mu?: number;
+}): T {
+  // #region [sub]
+  const addNeighbor = (
+    sets: Map<number, Set<number>>,
+    a: number,
+    b: number,
+  ) => {
+    if (a === b) {
+      return;
+    }
+    let s = sets.get(a);
+    if (!s) {
+      sets.set(a, (s = new Set()));
+    }
+    s.add(b);
+  };
+
+  const computeRange = (h: T, canon: number[]) => {
+    let min = Infinity,
+      max = -Infinity;
+    for (const k of canon) {
+      if (h[k] < min) {
+        min = h[k];
+      }
+      if (h[k] > max) {
+        max = h[k];
+      }
+    }
+    return { min, max };
+  };
+
+  const smoothPass = (
+    h: T,
+    tmp: T,
+    canon: number[],
+    nb: Map<number, number[]>,
+    factor: number,
+  ) => {
+    for (const k of canon) {
+      const ns = nb.get(k)!;
+      let s = 0;
+      for (const j of ns) {
+        s += h[j];
+      }
+      tmp[k] = h[k] + factor * (s / ns.length - h[k]);
+    }
+    for (const k of canon) {
+      h[k] = tmp[k];
+    }
+  };
+
+  const createLike = (src: T, init: number | T): T => {
+    const Ctor = src.constructor as new (init: number | ArrayLike<number>) => T;
+    return new Ctor(init);
+  };
+  // #endregion [sub]
+
+  const {
+    geom,
+    H,
+    getCanonicalIndex,
+    iterations = 5,
+    lambda = 0.5,
+    mu = -0.53,
+  } = params;
+
+  const ptCnt = geom.attributes.position.count;
+  const geom_index = geom.index ? geom.index.array : null;
+  const indexCnt = geom_index ? geom_index.length : ptCnt;
+
+  // 1. Neighbours between canonical vertices
+  const sets = new Map<number, Set<number>>();
+  for (let t = 0; t < indexCnt; t += 3) {
+    const a = getCanonicalIndex(geom_index ? geom_index[t] : t);
+    const b = getCanonicalIndex(geom_index ? geom_index[t + 1] : t + 1);
+    const c = getCanonicalIndex(geom_index ? geom_index[t + 2] : t + 2);
+    addNeighbor(sets, a, b);
+    addNeighbor(sets, a, c);
+    addNeighbor(sets, b, a);
+    addNeighbor(sets, b, c);
+    addNeighbor(sets, c, a);
+    addNeighbor(sets, c, b);
+  }
+  const canon = [...sets.keys()];
+  const nb = new Map<number, number[]>();
+  for (const k of canon) {
+    nb.set(k, [...sets.get(k)!]);
+  }
+
+  // Working copy (same type as H), indexed by canonical id
+  const h = createLike(H, H);
+  const tmp = createLike(H, H);
+
+  const original = computeRange(h, canon);
+
+  // 2. Taubin smoothing: shrink (lambda) then inflate (mu)
+  for (let it = 0; it < iterations; it++) {
+    smoothPass(h, tmp, canon, nb, lambda);
+    smoothPass(h, tmp, canon, nb, mu);
+  }
+
+  // 3. Restore the original peak/valley range
+  const smoothed = computeRange(h, canon);
+  const scale =
+    (original.max - original.min) / (smoothed.max - smoothed.min || 1);
+
+  // 4. Update H in-place
+  for (let i = 0; i < ptCnt; i++) {
+    const k = getCanonicalIndex(i);
+    H[i] = original.min + (h[k] - smoothed.min) * scale;
+  }
+
+  return H;
 }
