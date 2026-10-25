@@ -928,6 +928,8 @@ export function brainCoral_generate(params: {
     sphere_zSize: number;
     seedHash: string;
   }) => {
+    const noise_binaryThreshold = -0.01;
+
     const { seedHash, sphere_xSize, sphere_zSize } = params;
 
     const seed = xxh().update(seedHash).update("texture").digest().toNumber();
@@ -936,9 +938,9 @@ export function brainCoral_generate(params: {
     // The following settings are based on experiment,
     // It simulates the brain pattern on the coral surface.
     noiseGen.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-    noiseGen.SetFrequency(0.03);
+    noiseGen.SetFrequency(0.025);
     noiseGen.SetFractalType(FastNoiseLite.FractalType.PingPong);
-    noiseGen.SetFractalPingPongStrength(2.11);
+    noiseGen.SetFractalPingPongStrength(2.10);
 
     let img_width = brainPatternTextureImg_minSizeConstraint;
     let img_height = brainPatternTextureImg_minSizeConstraint;
@@ -958,6 +960,11 @@ export function brainCoral_generate(params: {
     for (let y = 0; y < img_height; y++) {
       for (let x = 0; x < img_width; x++) {
         let noiseVal = noiseGen.GetNoise(x, y);
+        if (noiseVal < noise_binaryThreshold) {
+          noiseVal = -1;
+        } else {
+          noiseVal = 1;
+        }
 
         const idx = y * img_width + x;
         const color = Math.floor((noiseVal + 1) * 0.5 * 255);
@@ -1001,7 +1008,7 @@ export function brainCoral_generate(params: {
     sphere_widthSegCnt: number;
     sphere_heightSegCnt: number;
   }) => {
-    const offsetLenConstraint = 0.036;
+    const offsetLenConstraint = 0.02;
 
     const {
       sphere,
