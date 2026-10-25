@@ -190,7 +190,7 @@ export class CMApp {
 
     const branchingCoral = branchingCoral_generate({
       root_pt: new THREE.Vector3(0, 0, 0),
-      root_forwardVec: new THREE.Vector3(1, 0, 0),
+      root_normalVec: new THREE.Vector3(0, 1, 0),
       root_distToCeil: 1,
       root_radius: 0.02,
       growthLevelCnt: 3,
@@ -201,7 +201,7 @@ export class CMApp {
 
     const brainCoral = brainCoral_generate({
       root_pt: new THREE.Vector3(0.8, 0, 0.8),
-      root_forwardVec: new THREE.Vector3(1, 0, 0),
+      root_normalVec: new THREE.Vector3(0, 1, 0),
       material: new THREE.MeshStandardMaterial({ color: "#80b01f" }),
       x_size: 0.55,
       z_size: 0.6,

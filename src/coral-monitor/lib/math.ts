@@ -59,3 +59,32 @@ export function projectPointOnVec(
 ): THREE.Vector3 {
   return p.clone().sub(a).projectOnVector(vecFromA).add(a);
 }
+
+/**
+ * Project point P onto the plane defined by point O and vectors OA, OB
+ *
+ * @param p
+ * @param o
+ * @param a
+ * @param b
+ */
+export function projectPointOnPlane(
+  p: THREE.Vector3,
+  o: THREE.Vector3,
+  oa_vec: THREE.Vector3,
+  ob_vec: THREE.Vector3,
+): THREE.Vector3 {
+  const normal = new THREE.Vector3().crossVectors(oa_vec, ob_vec);
+
+  const lengthSq = normal.lengthSq();
+  if (lengthSq < 1e-12) {
+    throw new Error(
+      "projectPointOnPlane: OA and OB are parallel (or zero), plane is undefined",
+    );
+  }
+  normal.normalize();
+
+  const op = new THREE.Vector3().subVectors(p, o);
+  const distance = op.dot(normal);
+  return p.clone().addScaledVector(normal, -distance);
+}

@@ -7,6 +7,7 @@ import type { RandomFunc } from "./types";
 
 import weightedSelect from "./lib-external/weighted";
 import {
+  projectPointOnPlane,
   projectPointOnVec,
   randMultipleWithMinDist,
   randRange,
@@ -60,17 +61,13 @@ interface CoralBranchTube {
 }
 
 /**
- * @param {THREE.Vector3} params.root_pt
- *    The root point of the coral
- * @param {THREE.Vector3} params.root_forwardVec
- *    The forward vector of the root of the coral. It represents the "surface" where the coral is attached
  * @param {number} params.root_distToCeil
  *    The distance from the root to the tip of the root branch
  *
  */
 export function branchingCoral_generate(params: {
   root_pt: THREE.Vector3;
-  root_forwardVec: THREE.Vector3;
+  root_normalVec: THREE.Vector3;
   root_distToCeil: number;
   root_radius: number;
   growthLevelCnt: number;
@@ -238,17 +235,27 @@ export function branchingCoral_generate(params: {
 
   const rootBranchTube_generate = (params: {
     root_pt: THREE.Vector3;
-    forward_vec: THREE.Vector3;
+    normal_vec: THREE.Vector3;
     root_distToCeil: number;
     radius: number;
     randFn: RandomFunc;
   }) => {
-    const { root_pt, forward_vec, root_distToCeil, radius, randFn } = params;
+    const { root_pt, normal_vec, root_distToCeil, radius, randFn } = params;
 
     // Increase randomness
     randFn();
 
-    const forward_upAngle_rad = forward_vec.angleTo(UP_DIR);
+    const normal_dir = normal_vec.normalize();
+
+    const axisOutScreen_dir = new THREE.Vector3(0, 0, 1);
+
+    // Special case handling: Only compute axisOutScreen_dir if normal_dir is not parallel to UP_DIR
+    if (normal_dir.distanceToSquared(UP_DIR) > 1e-6) {
+      axisOutScreen_dir.copy(UP_DIR).cross(normal_vec).normalize();
+    }
+
+    const forward_dir = normal_vec.clone().cross(axisOutScreen_dir).normalize();
+    const forward_upAngle_rad = forward_dir.angleTo(UP_DIR);
     const ceil_upAngle_rad = randRange({
       a: -branch_upDirAngleConstraint_deg * DEG2RAD,
       b: Math.min(
@@ -258,20 +265,18 @@ export function branchingCoral_generate(params: {
       randFn,
     });
 
-    const n_dir = forward_vec.clone().cross(UP_DIR).normalize();
-    const right_dir = UP_DIR.clone().cross(n_dir).normalize();
+    const right_dir = UP_DIR.clone().cross(axisOutScreen_dir).normalize();
     const ceil_dir = ZERO_VEC.clone()
       .addScaledVector(UP_DIR, Math.cos(ceil_upAngle_rad))
       .addScaledVector(right_dir, Math.sin(ceil_upAngle_rad))
       .normalize();
 
-    const branch_up_dir = n_dir.clone().cross(forward_vec).normalize();
     const ceil_pt = root_pt.clone().addScaledVector(ceil_dir, root_distToCeil);
 
     let rand_rot = TAU * randFn();
 
     const branch = branchTube_generate({
-      forward_vec: forward_vec.clone().applyAxisAngle(UP_DIR, rand_rot),
+      forward_vec: forward_dir.clone().applyAxisAngle(UP_DIR, rand_rot),
       root_pt,
       ceil_pt: ceil_pt.applyAxisAngle(UP_DIR, rand_rot),
       radius,
@@ -631,7 +636,7 @@ export function branchingCoral_generate(params: {
   const {
     seedHash,
     root_pt,
-    root_forwardVec,
+    root_normalVec,
     root_radius,
     material,
     root_distToCeil,
@@ -643,7 +648,7 @@ export function branchingCoral_generate(params: {
 
   const rootBranchTube = rootBranchTube_generate({
     root_pt,
-    forward_vec: root_forwardVec,
+    normal_vec: root_normalVec,
     root_distToCeil,
     radius: root_radius,
     randFn,
@@ -910,7 +915,7 @@ function branchTube_createThorns(params: {
 
 export function brainCoral_generate(params: {
   root_pt: THREE.Vector3;
-  root_forwardVec: THREE.Vector3;
+  root_normalVec: THREE.Vector3;
   x_size: number;
   z_size: number;
   height: number;
@@ -1011,6 +1016,9 @@ export function brainCoral_generate(params: {
     sphere_heightSegCnt: number;
   }) => {
     const offsetLenConstraint = 0.02;
+    const taubinSmooth_iterConstraint = 3;
+    const taubinSmooth_lambdaConstraint = 1;
+    const taubinSmooth_muConstraint = -0.53;
 
     const { sphere, textureData, sphere_widthSegCnt, sphere_heightSegCnt } =
       params;
@@ -1057,9 +1065,9 @@ export function brainCoral_generate(params: {
           widthSegCnt: sphere_widthSegCnt,
           heightSegCnt: sphere_heightSegCnt,
         }),
-      iterations: 3,
-      lambda: 1,
-      mu: -0.53,
+      iterations: taubinSmooth_iterConstraint,
+      lambda: taubinSmooth_lambdaConstraint,
+      mu: taubinSmooth_muConstraint,
     });
 
     for (let i = 0; i < attr_position.count; i++) {
@@ -1088,11 +1096,9 @@ export function brainCoral_generate(params: {
     root_pt,
     x_size,
     z_size,
-    root_forwardVec,
+    root_normalVec,
     height,
   } = params;
-
-  const randFn = seedrandom(seedHash);
 
   let sphere_widthSegCnt = 100;
   let sphere_heightSegCnt = 100;
@@ -1128,10 +1134,23 @@ export function brainCoral_generate(params: {
     sphere_heightSegCnt,
   });
 
-  // deformSphere({ sphere, randFn, sphere_widthSegCnt, sphere_heightSegCnt });
+  const rotation_axisVec = new THREE.Vector3().crossVectors(
+    UP_DIR,
+    root_normalVec,
+  );
+  const rotation_angleRad = UP_DIR.angleTo(root_normalVec);
 
   sphere.applyMatrix4(
-    new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
+    new THREE.Matrix4()
+      .premultiply(
+        new THREE.Matrix4().makeRotationAxis(
+          rotation_axisVec,
+          rotation_angleRad,
+        ),
+      )
+      .premultiply(
+        new THREE.Matrix4().makeTranslation(root_pt.x, root_pt.y, root_pt.z),
+      ),
   );
 
   const mesh = new THREE.Mesh(sphere, material);
