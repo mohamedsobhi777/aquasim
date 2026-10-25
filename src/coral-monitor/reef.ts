@@ -7,13 +7,10 @@ import type { RandomFunc } from "./types";
 
 import weightedSelect from "./lib-external/weighted";
 import {
-  projectPointOnPlane,
   projectPointOnVec,
   randMultipleWithMinDist,
-  randRange,
+  randRange
 } from "./lib/math";
-import { xyz_toCommaDelimStr } from "./lib/utils";
-import { meshWithWireframe } from "./lib/graphics";
 import FastNoiseLite from "./lib-external/fastnoise-lite";
 
 class GeometryMerger {
