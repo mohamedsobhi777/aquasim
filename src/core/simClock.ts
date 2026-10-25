@@ -1,7 +1,4 @@
-/**
- * Simulation time, decoupled from wall-clock time. Capture freezes the clock so
- * every render pass for a frame sees the same simulation state.
- */
+/** Simulation time, decoupled from wall-clock time so it can be paused. */
 export class SimClock {
   private time = 0;
   private paused = false;

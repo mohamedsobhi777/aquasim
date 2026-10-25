@@ -11,5 +11,5 @@ createPanel(app);
 startHud(app, hud);
 requestAnimationFrame(app.frame);
 
-// Handy for debugging and scripted captures from the console.
+// Handy for debugging from the console.
 (window as unknown as { aquasim: AquaSimApp }).aquasim = app;

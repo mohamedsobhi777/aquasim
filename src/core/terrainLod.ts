@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { registerLod, setLabelSlot, triangleCount, type LodView } from './lod';
+import { registerLod, type LodView } from './lod';
 
 export interface TerrainLodOptions {
   name: string;
@@ -158,17 +158,14 @@ const eye = new THREE.Vector3();
  * resolutions. Per frame each chunk shows the coarsest level whose measured
  * height error, projected at the chunk's distance, stays under
  * `maxErrorPixels` (chunked LOD). Normals come from the height field itself,
- * so coarse chunks keep the shading of fine relief. All chunks share one
- * label instance.
+ * so coarse chunks keep the shading of fine relief.
  */
-export function createTerrainLod(options: TerrainLodOptions): { group: THREE.Group; fullDetailTriangles: number } {
+export function createTerrainLod(options: TerrainLodOptions): THREE.Group {
   const { name, size, chunks, levelSegments, material } = options;
   const group = new THREE.Group();
   group.name = name;
   const chunkSize = size / chunks;
-  const slot = { key: group, count: 1, name };
   const list: Chunk[] = [];
-  let fullDetailTriangles = 0;
 
   for (let cz = 0; cz < chunks; cz++) {
     for (let cx = 0; cx < chunks; cx++) {
@@ -178,41 +175,30 @@ export function createTerrainLod(options: TerrainLodOptions): { group: THREE.Gro
       const meshes = built.map(({ geometry }, level) => {
         const mesh = new THREE.Mesh(geometry, material);
         mesh.name = `${name}-${cx}-${cz}-lod${level}`;
-        mesh.receiveShadow = true;
         mesh.visible = level === 0;
-        setLabelSlot(mesh, slot);
         group.add(mesh);
         return mesh;
       });
       const bounds = new THREE.Box3();
       meshes.forEach((mesh) => bounds.union(mesh.geometry.boundingBox!));
       list.push({ bounds, meshes, errors: built.map((b) => b.error) });
-      fullDetailTriangles += triangleCount(meshes[0].geometry);
     }
   }
 
   registerLod(group, (view: LodView) => {
-    const counts = levelSegments.map(() => 0);
-    let triangles = 0;
     view.camera.getWorldPosition(eye);
     for (const chunk of list) {
+      const distance = Math.max(1e-3, chunk.bounds.clampPoint(eye, closest).distanceTo(eye));
       let level = 0;
-      if (view.enabled) {
-        const distance = Math.max(1e-3, chunk.bounds.clampPoint(eye, closest).distanceTo(eye));
-        level = 0;
-        for (let l = chunk.errors.length - 1; l > 0; l--) {
-          if ((chunk.errors[l] * view.pixelScale) / distance <= options.maxErrorPixels) {
-            level = l;
-            break;
-          }
+      for (let l = chunk.errors.length - 1; l > 0; l--) {
+        if ((chunk.errors[l] * view.pixelScale) / distance <= options.maxErrorPixels) {
+          level = l;
+          break;
         }
       }
       chunk.meshes.forEach((mesh, l) => (mesh.visible = l === level));
-      counts[level]++;
-      triangles += triangleCount(chunk.meshes[level].geometry);
     }
-    return { triangles, perLevel: counts };
   });
 
-  return { group, fullDetailTriangles };
+  return group;
 }
