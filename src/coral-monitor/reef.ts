@@ -919,7 +919,7 @@ export function brainCoral_generate(params: {
   material: THREE.MeshStandardMaterial;
   seedHash: string;
 }) {
-  const sphere_segCntMinConstraint = 384;
+  const sphere_segCntMinConstraint = 512;
 
   /** Should be smaller than sphere_segCntMinConstraint */
   const brainPatternTextureImg_minSizeConstraint = 256;

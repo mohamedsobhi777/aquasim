@@ -188,21 +188,21 @@ export class CMApp {
 
     setupGenericLightingEnvironment(scene);
 
-    const branchingCoral = branchingCoral_generate({
-      root_pt: new THREE.Vector3(0, 0, 0),
-      root_normalVec: new THREE.Vector3(0, 1, 0),
-      root_distToCeil: 1,
-      root_radius: 0.02,
-      growthLevelCnt: 3,
-      material: new THREE.MeshStandardMaterial({ color: "#526362" }),
-      seedHash: `${worldSeed}/coral/branching/5`,
-    });
-    scene.add(branchingCoral);
+    // const branchingCoral = branchingCoral_generate({
+    //   root_pt: new THREE.Vector3(0, 0, 0),
+    //   root_normalVec: new THREE.Vector3(0, 1, 0),
+    //   root_distToCeil: 1,
+    //   root_radius: 0.02,
+    //   growthLevelCnt: 2,
+    //   material: new THREE.MeshStandardMaterial({ color: "#ffc000" }),
+    //   seedHash: `${worldSeed}/coral/branching/10`,
+    // });
+    // scene.add(branchingCoral);
 
     const brainCoral = brainCoral_generate({
-      root_pt: new THREE.Vector3(0.8, 0, 0.8),
+      root_pt: new THREE.Vector3(0, 0, 0),
       root_normalVec: new THREE.Vector3(0, 1, 0),
-      material: new THREE.MeshStandardMaterial({ color: "#80b01f" }),
+      material: new THREE.MeshStandardMaterial({ color: "#ad592b" }),
       x_size: 0.55,
       z_size: 0.6,
       height: 0.3,
