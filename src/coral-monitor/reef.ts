@@ -1354,12 +1354,20 @@ export function fanCoral_generate(params: {
   seedHash: string;
 }) {
   type Branch = {
-    start: THREE.Vector3;
-    end: THREE.Vector3;
+    start: THREE.Vector2;
+    end: THREE.Vector2;
     startRadius: number;
     endRadius: number;
     angle: number;
-    isTerminal?: boolean;
+    parent?: Branch;
+  };
+  type MainBranch = { segments: Branch[] };
+  type BranchIndex = Map<string, Branch[]>;
+  type TinyGrowth = {
+    start: THREE.Vector2;
+    angle: number;
+    parent: Branch;
+    distance: number;
   };
   type GeometryData = {
     positions: number[];
@@ -1367,26 +1375,219 @@ export function fanCoral_generate(params: {
     indices: number[];
   };
 
-  const mainBranch_maxLevel = 3;
+  const mainBranch_maxLevel = 4;
   const mainBranch_segmentCnt = 3;
-  const tinyBranch_maxLevel = 5;
+  const mainBranch_minHeightRatio = 0.9;
+  const mainBranch_targetHeight =
+    mainBranch_minHeightRatio + (1 - mainBranch_minHeightRatio) * 0.3;
   const mainBranch_min = 0.025;
   const mainBranch_max = 0.032;
   const tinyBranch_min = 0.001;
   const tinyBranch_max = 0.0016;
+
+  // Distances are relative to the requested height.
+  const tinyBranch_gapOnMain = 0.0025;
+  const tinyBranch_segmentLenStep = 0.02;
+  const tinyBranch_maxGrowthDistance = 0.3;
+  const collisionCellSize = 0.1;
   const radialSegments = 6;
   const { root_pt, root_normalVec, height, material, seedHash } = params;
 
   // #region [sub]
-  const addBranch = (
-    branch: Branch,
-    geometryData: GeometryData,
+  const branchCells = (branch: Branch) => {
+    const radius = Math.max(branch.startRadius, branch.endRadius) * 1.05;
+    const min = branch.start.clone().min(branch.end).addScalar(-radius);
+    const max = branch.start.clone().max(branch.end).addScalar(radius);
+    min.divideScalar(collisionCellSize).floor();
+    max.divideScalar(collisionCellSize).floor();
+    const cells: string[] = [];
+
+    for (let x = min.x; x <= max.x; x++) {
+      for (let y = min.y; y <= max.y; y++) {
+        cells.push(`${x},${y}`);
+      }
+    }
+    return cells;
+  };
+
+  const closestBranchPoints = (
+    firstStart: THREE.Vector2,
+    firstEnd: THREE.Vector2,
+    secondStart: THREE.Vector2,
+    secondEnd: THREE.Vector2,
   ) => {
+    const u = firstEnd.clone().sub(firstStart);
+    const v = secondEnd.clone().sub(secondStart);
+    const w = firstStart.clone().sub(secondStart);
+    const a = u.dot(u);
+    const b = u.dot(v);
+    const c = u.dot(w);
+    const e = v.dot(v);
+    const f = v.dot(w);
+    const denominator = a * e - b * b;
+    let s =
+      denominator > 1e-12 * a * e
+        ? THREE.MathUtils.clamp((b * f - c * e) / denominator, 0, 1)
+        : 0;
+    let t = (b * s + f) / e;
+
+    if (t < 0) {
+      t = 0;
+      s = THREE.MathUtils.clamp(-c / a, 0, 1);
+    } else if (t > 1) {
+      t = 1;
+      s = THREE.MathUtils.clamp((b - c) / a, 0, 1);
+    }
+    return firstStart
+      .clone()
+      .addScaledVector(u, s)
+      .distanceTo(secondStart.clone().addScaledVector(v, t));
+  };
+
+  const branchCanGrow = (
+    branch: Branch,
+    parent: Branch | undefined,
+    index: BranchIndex,
+  ) => {
+    const nearby = new Set<Branch>();
+    for (const cell of branchCells(branch)) {
+      for (const existing of index.get(cell) ?? []) {
+        nearby.add(existing);
+      }
+    }
+
+    for (const existing of nearby) {
+      let ancestor = parent;
+      while (ancestor && ancestor !== existing) {
+        ancestor = ancestor.parent;
+      }
+      const existingDirection = existing.end.clone().sub(existing.start);
+      const startProjection = THREE.MathUtils.clamp(
+        branch.start.clone().sub(existing.start).dot(existingDirection) /
+          existingDirection.lengthSq(),
+        0,
+        1,
+      );
+      const startDistance = branch.start.distanceTo(
+        existing.start
+          .clone()
+          .addScaledVector(existingDirection, startProjection),
+      );
+      const startRadius = THREE.MathUtils.lerp(
+        existing.startRadius,
+        existing.endRadius,
+        startProjection,
+      );
+      const connected =
+        (ancestor === existing ||
+          existing.start.distanceToSquared(branch.start) < 1e-12 ||
+          existing.end.distanceToSquared(branch.start) < 1e-12) &&
+        startDistance < (branch.startRadius + startRadius) * 1.05;
+      if (connected) {
+        // A connected branch may overlap at its base, but must emerge from it.
+        const endProjection = THREE.MathUtils.clamp(
+          branch.end.clone().sub(existing.start).dot(existingDirection) /
+            existingDirection.lengthSq(),
+          0,
+          1,
+        );
+        const endDistance = branch.end.distanceTo(
+          existing.start
+            .clone()
+            .addScaledVector(existingDirection, endProjection),
+        );
+        const endRadius = THREE.MathUtils.lerp(
+          existing.startRadius,
+          existing.endRadius,
+          endProjection,
+        );
+        if (endDistance < (branch.endRadius + endRadius) * 1.05) {
+          return false;
+        }
+        continue;
+      }
+
+      const firstParts = branch.startRadius === branch.endRadius ? 1 : 2;
+      const secondParts = existing.startRadius === existing.endRadius ? 1 : 2;
+      for (let i = 0; i < firstParts; i++) {
+        const firstA = i / firstParts;
+        const firstB = (i + 1) / firstParts;
+        const firstRadius = Math.max(
+          THREE.MathUtils.lerp(branch.startRadius, branch.endRadius, firstA),
+          THREE.MathUtils.lerp(branch.startRadius, branch.endRadius, firstB),
+        );
+        for (let j = 0; j < secondParts; j++) {
+          const secondA = j / secondParts;
+          const secondB = (j + 1) / secondParts;
+          const secondRadius = Math.max(
+            THREE.MathUtils.lerp(
+              existing.startRadius,
+              existing.endRadius,
+              secondA,
+            ),
+            THREE.MathUtils.lerp(
+              existing.startRadius,
+              existing.endRadius,
+              secondB,
+            ),
+          );
+          const closest = closestBranchPoints(
+            branch.start.clone().lerp(branch.end, firstA),
+            branch.start.clone().lerp(branch.end, firstB),
+            existing.start.clone().lerp(existing.end, secondA),
+            existing.start.clone().lerp(existing.end, secondB),
+          );
+          if (closest < (firstRadius + secondRadius) * 1.05) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  };
+
+  const indexBranch = (branch: Branch, index: BranchIndex) => {
+    for (const cell of branchCells(branch)) {
+      const list = index.get(cell);
+      if (list) {
+        list.push(branch);
+      } else {
+        index.set(cell, [branch]);
+      }
+    }
+  };
+
+  const removeBranch = (branch: Branch, index: BranchIndex) => {
+    for (const cell of branchCells(branch)) {
+      const list = index.get(cell);
+      if (list) {
+        const position = list.indexOf(branch);
+        if (position !== -1) {
+          list.splice(position, 1);
+        }
+        if (list.length === 0) {
+          index.delete(cell);
+        }
+      }
+    }
+  };
+
+  const tinyBranch_boundAngle = (angle: number, minAngle: number) => {
+    const width = PI / 2 - minAngle;
+    if (width < 1e-12) {
+      return minAngle;
+    }
+    const period = 2 * width;
+    const offset = ((angle - minAngle) % period + period) % period;
+    return minAngle + (offset <= width ? offset : period - offset);
+  };
+
+  const addBranch = (branch: Branch, geometryData: GeometryData) => {
     const { start, end, startRadius, endRadius } = branch;
     const { positions, normals, indices } = geometryData;
     const direction = end.clone().sub(start).normalize();
-    const side = new THREE.Vector3(direction.y, -direction.x, 0).normalize();
-    const depth = new THREE.Vector3().crossVectors(side, direction).normalize();
+    const side = new THREE.Vector3(direction.y, -direction.x, 0);
+    const depth = new THREE.Vector3(0, 0, 1);
     const firstVertex = positions.length / 3;
 
     for (let ring = 0; ring < 2; ring++) {
@@ -1399,7 +1600,8 @@ export function fanCoral_generate(params: {
           .clone()
           .multiplyScalar(Math.cos(angle))
           .addScaledVector(depth, Math.sin(angle));
-        const point = center.clone().addScaledVector(normal, radius);
+        const point = new THREE.Vector3(center.x, center.y, 0)
+          .addScaledVector(normal, radius);
         point.y = Math.max(0, point.y);
         positions.push(point.x, point.y, point.z);
         normals.push(normal.x, normal.y, normal.z);
@@ -1416,20 +1618,48 @@ export function fanCoral_generate(params: {
     }
   };
 
+  const addMainJoint = (
+    center: THREE.Vector2,
+    radius: number,
+    jointGeometry: THREE.SphereGeometry,
+    geometryData: GeometryData,
+  ) => {
+    const firstVertex = geometryData.positions.length / 3;
+    const position = jointGeometry.getAttribute("position");
+    const normal = jointGeometry.getAttribute("normal");
+    const jointIndex = jointGeometry.getIndex()!;
+    for (let i = 0; i < position.count; i++) {
+      geometryData.positions.push(
+        center.x + position.getX(i) * radius * 1.05,
+        Math.max(0, center.y + position.getY(i) * radius * 1.05),
+        position.getZ(i) * radius * 1.05,
+      );
+      geometryData.normals.push(normal.getX(i), normal.getY(i), normal.getZ(i));
+    }
+    for (let i = 0; i < jointIndex.count; i++) {
+      geometryData.indices.push(firstVertex + jointIndex.getX(i));
+    }
+  };
+
   const growMainBranch = (
-    start: THREE.Vector3,
+    start: THREE.Vector2,
     angle: number,
-    length: number,
     radius: number,
     level: number,
-    branches: Branch[],
+    branches: MainBranch[],
+    parent: Branch | undefined,
+    index: BranchIndex,
     randFn: RandomFunc,
-  ) => {
+  ): boolean => {
     const isTerminal = level === mainBranch_maxLevel;
     const endRadius =
       radius * (isTerminal ? 0.14 + randFn() * 0.12 : 0.65 + randFn() * 0.2);
+    const targetHeight = (mainBranch_targetHeight * level) / mainBranch_maxLevel;
+    const heightStep = (targetHeight - start.y) / mainBranch_segmentCnt;
     let segmentStart = start;
     let segmentAngle = angle;
+    let previous = parent;
+    const segments: Branch[] = [];
 
     for (let i = 0; i < mainBranch_segmentCnt; i++) {
       segmentAngle = THREE.MathUtils.clamp(
@@ -1437,16 +1667,14 @@ export function fanCoral_generate(params: {
         -1.15,
         1.15,
       );
-      const segmentLength =
-        (length / mainBranch_segmentCnt) * (0.85 + randFn() * 0.3);
+      const segmentLength = heightStep / Math.cos(segmentAngle);
       const segmentEnd = segmentStart.clone().add(
-        new THREE.Vector3(
+        new THREE.Vector2(
           Math.sin(segmentAngle) * segmentLength,
           Math.cos(segmentAngle) * segmentLength,
-          (randFn() - 0.5) * segmentLength * 0.08,
         ),
       );
-      branches.push({
+      const segment: Branch = {
         start: segmentStart,
         end: segmentEnd,
         startRadius: THREE.MathUtils.lerp(
@@ -1460,77 +1688,113 @@ export function fanCoral_generate(params: {
           (i + 1) / mainBranch_segmentCnt,
         ),
         angle: segmentAngle,
-        isTerminal: isTerminal && i === mainBranch_segmentCnt - 1,
-      });
+        parent: previous,
+      };
+      if (!branchCanGrow(segment, previous, index)) {
+        for (const added of segments) {
+          removeBranch(added, index);
+        }
+        return false;
+      }
+      indexBranch(segment, index);
+      segments.push(segment);
+      previous = segment;
       segmentStart = segmentEnd;
     }
 
-    if (level >= mainBranch_maxLevel) {
-      return;
-    }
-
-    for (const sign of [-1, 1]) {
-      growMainBranch(
-        segmentStart,
-        THREE.MathUtils.clamp(
+    // Discard incomplete paths so every surviving main tip reaches the target.
+    if (!isTerminal) {
+      let hasChild = false;
+      for (const sign of [-1, 1]) {
+        const childAngle = THREE.MathUtils.clamp(
           segmentAngle * (0.65 + randFn() * 0.25) +
             sign * (0.18 + randFn() * 0.5),
           -1.15,
           1.15,
-        ),
-        length * (0.6 + randFn() * 0.5),
-        endRadius,
-        level + 1,
-        branches,
-        randFn,
-      );
+        );
+        if (
+          growMainBranch(
+            segmentStart,
+            childAngle,
+            endRadius,
+            level + 1,
+            branches,
+            previous,
+            index,
+            randFn,
+          )
+        ) {
+          hasChild = true;
+        }
+      }
+      if (!hasChild) {
+        for (const added of segments) {
+          removeBranch(added, index);
+        }
+        return false;
+      }
     }
+    branches.push({ segments });
+    return true;
   };
 
   const growTinyBranch = (
-    start: THREE.Vector3,
-    angle: number,
-    length: number,
+    growth: TinyGrowth,
     radius: number,
-    level: number,
-    geometryData: GeometryData,
+    minAngle: number,
+    index: BranchIndex,
+    branches: Branch[],
+    pending: TinyGrowth[],
     randFn: RandomFunc,
   ) => {
-    if (start.y >= 1 - radius) {
+    const { start, angle, parent, distance } = growth;
+    if (start.y < radius || distance >= tinyBranch_maxGrowthDistance) {
       return;
     }
 
+    const segmentLength = Math.min(
+      tinyBranch_segmentLenStep,
+      tinyBranch_maxGrowthDistance - distance,
+    );
+    if (segmentLength <= 1e-9) {
+      return;
+    }
+    const vertical = Math.cos(angle);
     const end = start.clone().add(
-      new THREE.Vector3(
-        Math.sin(angle) * length,
-        Math.cos(angle) * length,
-        (randFn() - 0.5) * length * 0.08,
+      new THREE.Vector2(
+        Math.sin(angle) * segmentLength,
+        Math.abs(vertical) < 1e-12 ? 0 : vertical * segmentLength,
       ),
     );
-    end.y = Math.min(end.y, 1 - radius);
-    addBranch(
-      { start, end, startRadius: radius, endRadius: radius, angle },
-      geometryData,
-    );
+    const branch = {
+      start,
+      end,
+      startRadius: radius,
+      endRadius: radius,
+      angle,
+      parent,
+    };
+    if (!branchCanGrow(branch, parent, index)) {
+      return;
+    }
+    indexBranch(branch, index);
+    branches.push(branch);
 
-    if (level >= tinyBranch_maxLevel || end.y >= 1 - radius) {
+    const nextDistance = distance + segmentLength;
+    if (nextDistance >= tinyBranch_maxGrowthDistance - 1e-9) {
       return;
     }
 
     for (const sign of [-1, 1]) {
-      growTinyBranch(
-        end,
-        THREE.MathUtils.clamp(
-          angle * 0.8 + sign * (0.3 + randFn() * 0.3),
-          -1.3,
-          1.3,
+      pending.push({
+        start: end,
+        angle: tinyBranch_boundAngle(
+          angle + sign * (0.18 + randFn() * 0.3),
+          minAngle,
         ),
-        length * (0.78 + randFn() * 0.1),
-        radius,
-        level + 1,
-        geometryData,
-        randFn,
-      );
+        parent: branch,
+        distance: nextDistance,
+      });
     }
   };
   // #endregion [sub]
@@ -1542,7 +1806,9 @@ export function fanCoral_generate(params: {
     !Number.isFinite(root_normalVec.x) ||
     !Number.isFinite(root_normalVec.y) ||
     !Number.isFinite(root_normalVec.z) ||
-    root_normalVec.lengthSq() === 0
+    (root_normalVec.x === 0 &&
+      root_normalVec.y === 0 &&
+      root_normalVec.z === 0)
   ) {
     throw new RangeError(
       "Fan coral root normal must be a finite nonzero vector",
@@ -1551,6 +1817,28 @@ export function fanCoral_generate(params: {
   if (![root_pt.x, root_pt.y, root_pt.z].every(Number.isFinite)) {
     throw new RangeError("Fan coral root point must be finite");
   }
+
+  const normalScale = Math.max(
+    Math.abs(root_normalVec.x),
+    Math.abs(root_normalVec.y),
+    Math.abs(root_normalVec.z),
+  );
+  const normal = new THREE.Vector3(
+    root_normalVec.x / normalScale,
+    root_normalVec.y / normalScale,
+    root_normalVec.z / normalScale,
+  ).normalize();
+  const planeNormal = new THREE.Vector3().crossVectors(normal, UP_DIR);
+  const planeScale = Math.max(Math.abs(planeNormal.x), Math.abs(planeNormal.z));
+  const horizontal = new THREE.Vector3();
+  if (planeScale === 0) {
+    horizontal.set(1, 0, 0);
+  } else {
+    planeNormal.set(planeNormal.x / planeScale, 0, planeNormal.z / planeScale);
+    horizontal.crossVectors(planeNormal, normal).normalize();
+  }
+  const depth = new THREE.Vector3().crossVectors(horizontal, normal).normalize();
+  const tinyBranch_minAngle = Math.atan2(-normal.y, horizontal.y);
 
   const randFn = seedrandom(seedHash);
   const mainBranch_initialRadius = randRange({
@@ -1563,78 +1851,180 @@ export function fanCoral_generate(params: {
     tinyBranch_min,
     tinyBranch_max,
   );
-  const mainBranches: Branch[] = [];
+  const mainBranches: MainBranch[] = [];
+  const tinyBranches: Branch[] = [];
+  const branchIndex: BranchIndex = new Map();
+  const pendingTiny: TinyGrowth[] = [];
   const geometryData: GeometryData = { positions: [], normals: [], indices: [] };
 
-  for (const sign of [-1, 1]) {
+  const spineAngle = (randFn() - 0.5) * 0.3;
+  const spinePhase = randFn() * TAU;
+  let spinePoint = new THREE.Vector2();
+  let spineRadius = mainBranch_initialRadius;
+  let spineParent: Branch | undefined;
+  const spineBranches: MainBranch[] = [];
+  for (let level = 1; level <= mainBranch_maxLevel; level++) {
+    const endRadius = spineRadius * (level === mainBranch_maxLevel ? 0.2 : 0.75);
+    const segments: Branch[] = [];
+    for (let i = 0; i < mainBranch_segmentCnt; i++) {
+      const step = (level - 1) * mainBranch_segmentCnt + i;
+      const angle = spineAngle + 0.08 * Math.sin(spinePhase + step * 0.6);
+      const nextHeight =
+        (mainBranch_targetHeight * (step + 1)) /
+        (mainBranch_maxLevel * mainBranch_segmentCnt);
+      const length = (nextHeight - spinePoint.y) / Math.cos(angle);
+      const end = spinePoint.clone().add(
+        new THREE.Vector2(Math.sin(angle) * length, Math.cos(angle) * length),
+      );
+      const segment: Branch = {
+        start: spinePoint,
+        end,
+        startRadius: THREE.MathUtils.lerp(
+          spineRadius,
+          endRadius,
+          i / mainBranch_segmentCnt,
+        ),
+        endRadius: THREE.MathUtils.lerp(
+          spineRadius,
+          endRadius,
+          (i + 1) / mainBranch_segmentCnt,
+        ),
+        angle,
+        parent: spineParent,
+      };
+      if (!branchCanGrow(segment, spineParent, branchIndex)) {
+        throw new Error("Unable to grow the fan coral's main spine");
+      }
+      indexBranch(segment, branchIndex);
+      segments.push(segment);
+      spinePoint = end;
+      spineParent = segment;
+    }
+    const mainBranch = { segments };
+    mainBranches.push(mainBranch);
+    spineBranches.push(mainBranch);
+    spineRadius = endRadius;
+  }
+
+  const oppositeSide = spineAngle < 0 ? 1 : -1;
+  growMainBranch(
+    new THREE.Vector2(),
+    oppositeSide * (0.55 + randFn() * 0.2),
+    mainBranch_initialRadius,
+    1,
+    mainBranches,
+    undefined,
+    branchIndex,
+    randFn,
+  );
+  for (let level = 1; level < mainBranch_maxLevel; level++) {
+    const parent = spineBranches[level - 1].segments[mainBranch_segmentCnt - 1];
+    const sign = level === 1 ? -oppositeSide : oppositeSide;
     growMainBranch(
-      new THREE.Vector3(),
-      sign * (0.15 + randFn() * 0.4),
-      0.19 + randFn() * 0.12,
-      mainBranch_initialRadius,
-      1,
+      parent.end,
+      sign * (0.4 + randFn() * 0.35),
+      parent.endRadius,
+      level + 1,
       mainBranches,
+      parent,
+      branchIndex,
       randFn,
     );
   }
 
-  for (const branch of mainBranches) {
+  for (const mainBranch of mainBranches) {
+    let distanceAlongBranch = 0;
+    let nextStartDistance = tinyBranch_gapOnMain / 2;
+    for (const branch of mainBranch.segments) {
+      const length = branch.start.distanceTo(branch.end);
+      const side = new THREE.Vector2(
+        Math.cos(branch.angle),
+        -Math.sin(branch.angle),
+      );
+      while (nextStartDistance < distanceAlongBranch + length) {
+        const fraction = (nextStartDistance - distanceAlongBranch) / length;
+        const radius = THREE.MathUtils.lerp(
+          branch.startRadius,
+          branch.endRadius,
+          fraction,
+        );
+        for (const sign of [-1, 1]) {
+          pendingTiny.push({
+            start: branch.start
+              .clone()
+              .lerp(branch.end, fraction)
+              .addScaledVector(
+                side,
+                sign * Math.max(0, radius - tinyBranch_radius * 2),
+              ),
+            angle: tinyBranch_boundAngle(
+              branch.angle + sign * (0.65 + randFn() * 0.35),
+              tinyBranch_minAngle,
+            ),
+            parent: branch,
+            distance: 0,
+          });
+        }
+        nextStartDistance += tinyBranch_gapOnMain;
+      }
+      distanceAlongBranch += length;
+    }
+  }
+
+  const mainParents = new Set<Branch>();
+  for (const mainBranch of mainBranches) {
+    for (const segment of mainBranch.segments) {
+      if (segment.parent) {
+        mainParents.add(segment.parent);
+      }
+    }
+  }
+  const tipStarts: TinyGrowth[] = [];
+  for (const mainBranch of mainBranches) {
+    const tip = mainBranch.segments[mainBranch.segments.length - 1];
+    if (!mainParents.has(tip)) {
+      tipStarts.push({
+        start: tip.end.clone(),
+        angle: tinyBranch_boundAngle(tip.angle, tinyBranch_minAngle),
+        parent: tip,
+        distance: 0,
+      });
+    }
+  }
+
+  let frontier = [...tipStarts, ...pendingTiny];
+  while (frontier.length > 0) {
+    const next: TinyGrowth[] = [];
+    for (const growth of frontier) {
+      growTinyBranch(
+        growth,
+        tinyBranch_radius,
+        tinyBranch_minAngle,
+        branchIndex,
+        tinyBranches,
+        next,
+        randFn,
+      );
+    }
+    frontier = next;
+  }
+
+  for (const mainBranch of mainBranches) {
+    for (const segment of mainBranch.segments) {
+      addBranch(segment, geometryData);
+    }
+  }
+  for (const branch of tinyBranches) {
     addBranch(branch, geometryData);
   }
 
-  for (const branch of mainBranches) {
-    const side = new THREE.Vector3(
-      Math.cos(branch.angle),
-      -Math.sin(branch.angle),
-      0,
-    );
-    for (let i = 0; i < 2; i++) {
-      const fraction = 0.16 + (0.8 * (i + 0.5 + (randFn() - 0.5) * 0.4)) / 2;
-      const radius = THREE.MathUtils.lerp(
-        branch.startRadius,
-        branch.endRadius,
-        fraction,
-      );
-      for (const sign of [-1, 1]) {
-        const start = branch.start
-          .clone()
-          .lerp(branch.end, fraction)
-          .addScaledVector(
-            side,
-            sign * Math.max(0, radius - tinyBranch_radius * 2),
-          );
-        growTinyBranch(
-          start,
-          THREE.MathUtils.clamp(
-            branch.angle + sign * (0.45 + randFn() * 0.35),
-            -1.3,
-            1.3,
-          ),
-          0.065 + randFn() * 0.025,
-          tinyBranch_radius,
-          1,
-          geometryData,
-          randFn,
-        );
-      }
-    }
-    if (branch.isTerminal) {
-      for (const sign of [-1, 1]) {
-        growTinyBranch(
-          branch.end.clone().addScaledVector(
-            side,
-            sign * Math.max(0, branch.endRadius - tinyBranch_radius * 2),
-          ),
-          THREE.MathUtils.clamp(branch.angle + sign * 0.25, -1.3, 1.3),
-          0.065 + randFn() * 0.025,
-          tinyBranch_radius,
-          1,
-          geometryData,
-          randFn,
-        );
-      }
+  const jointGeometry = new THREE.SphereGeometry(1, 16, 12);
+  for (const mainBranch of mainBranches) {
+    for (const branch of mainBranch.segments) {
+      addMainJoint(branch.end, branch.endRadius, jointGeometry, geometryData);
     }
   }
+  jointGeometry.dispose();
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
@@ -1646,17 +2036,14 @@ export function fanCoral_generate(params: {
     new THREE.Float32BufferAttribute(geometryData.normals, 3),
   );
   geometry.setIndex(geometryData.indices);
-  geometry.computeBoundingBox();
-  const scale = height / geometry.boundingBox!.max.y;
-  geometry.scale(scale, scale, scale);
+  geometry.scale(height, height, height);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.copy(root_pt);
-  mesh.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    root_normalVec.clone().normalize(),
+  mesh.quaternion.setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(horizontal, normal, depth),
   );
   return mesh;
 }
