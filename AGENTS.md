@@ -4,14 +4,36 @@
 
 ## Implementation Rules
 
-n/a
+- ALWAYS define block `{ }` for control structures, event if the block contains only one statement.
+- Only write JSDoc comments when asked by the user.
+
+- Follow this outline when writing a function
+
+```javascript
+function <function_name>(<parameters>) {
+  /** <define constants>  */
+
+  // #region [sub]
+
+  /**
+   * Put all the sub functions of the main function within this section.
+   * Always write the sub function in arrow function syntax.
+   */
+
+  // #endregion [sub]
+
+  /** <main logic> */
+}
+```
 
 ### Specific for this project only
 
 - This project contains 2 **independent** sub-apps: [coral-monitor](/src/coral-monitor/) and [infra-inspect](/src/infra-inspect/). Never use code in 1 sub-app inside the other sub-app.
 
-- Inside the directory of each sub-app, there's a `const.ts` file which stores all constant values that are **widely** used throughout the sub-app. Example of such constants: Math constants, subapp-wide configuration values.
-
+- Structure inside the directory of each sub-app:
+  - **const.ts**: Stores constant values that are **widely** used throughout the sub-app. Example: Math constants, subapp-wide configuration values.
+  - **lib/graphics.ts**: Graphics-related classes, functions
+  - **lib/math.ts**: Math-related classes, functions
 
 ## Instruction Writing Guidelines
 
