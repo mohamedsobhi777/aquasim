@@ -8,7 +8,9 @@ n/a
 
 ### Specific for this project only
 
-n/a
+- This project contains 2 **independent** sub-apps: [coral-monitor](/src/coral-monitor/) and [infra-inspect](/src/infra-inspect/). Never use code in 1 sub-app inside the other sub-app.
+
+- Inside the directory of each sub-app, there's a `const.ts` file which stores all constant values that are **widely** used throughout the sub-app. Example of such constants: Math constants, subapp-wide configuration values.
 
 
 ## Instruction Writing Guidelines
@@ -16,7 +18,7 @@ n/a
 These guidelines targets instruction files in the project, such as README.md
 
 - Avoid lengthy paragraphs
-- Encourage the use of concise explanation in bullet point format, but don't overdo it
+- Encourage the use of concise explanation in bullet point format, but don't overdo it.
 
 ### Text formatting per file type
 
