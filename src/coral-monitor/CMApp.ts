@@ -11,6 +11,7 @@ import {
   brainCoral_generate,
   branchingCoral_generate,
   fanCoral_generate,
+  plateCoral_generate,
 } from "./reef";
 import { setupGenericLightingEnvironment } from "./lib/graphics";
 import type { ScenarioOnCloseCallback } from "../types";
@@ -213,14 +214,14 @@ export class CMApp {
     // });
     // scene.add(brainCoral);
 
-    const fanCoral = fanCoral_generate({
+    const plateCoral = plateCoral_generate({
       root_pt: new THREE.Vector3(0, 0, 0),
       root_normalVec: new THREE.Vector3(0, 1, 0),
       height: 0.5,
-      material: new THREE.MeshStandardMaterial({ color: "#e74230" }),
-      seedHash: `${worldSeed}/coral/fan/3`,
+      material: new THREE.MeshStandardMaterial({ color: "#ad592b" }),
+      seedHash: `${worldSeed}/coral/plate/2`,
     });
-    scene.add(fanCoral);
+    scene.add(plateCoral);
   }
 
   showBooting() {
