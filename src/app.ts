@@ -203,6 +203,7 @@ export class AquaSimApp {
     const { presetId, turbidity, enabled, daylight } = this.settings.water;
     const c = computeWaterCoefficients({ presetId, turbidity, depth });
     setWaterCoefficients(c, enabled);
+    this.scenario.setSurface?.(this.clock.now, daylight, enabled && this.settings.water.waves);
     this.scenario.setCaustics?.(this.clock.now, enabled && this.settings.water.caustics ? Math.exp(-4 * turbidity) : 0);
     const ambient = new THREE.Color(c.ambient[0], c.ambient[1], c.ambient[2]);
     this.hemisphere.color.copy(ambient).multiplyScalar(enabled ? daylight * 0.35 : 1.2);

@@ -25,6 +25,7 @@ export interface BuiltScene {
   /** Animation hook driven by simulation time (never wall-clock time). */
   update?(time: number, dt: number): void;
   setCurrent?(time: number, velocity: THREE.Vector3): void;
+  setSurface?(time: number, daylight: number, visible: boolean): void;
   setCaustics?(time: number, visibility: number): void;
   dispose(): void;
 }

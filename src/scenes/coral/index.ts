@@ -7,6 +7,7 @@ import { createColonies, type Colony } from './colonies';
 import { CLASS_LIST, FIELD_SIZE, SURFACE_Y } from './layout';
 import { createReefSeabed } from './terrain';
 
+import { createReefSurface } from './surface';
 import { createFanSway } from './fanSway';
 
 type HeightAt = (x: number, z: number) => number;
@@ -96,7 +97,8 @@ export const coralScene: SceneModule = {
     for (const colony of colonies) {
       if (colony.kind === 'fan') sway.attach(colony.mesh, colony.mesh.material as THREE.MeshStandardMaterial);
     }
-    root.add(seabed.object, group);
+    const surface = createReefSurface();
+    root.add(seabed.object, group, surface.mesh);
 
     const largest = colonies.filter((c) => c.kind === 'brain').sort((a, b) => b.radius - a.radius)[0] ?? colonies[0];
     const trajectories = [
@@ -110,6 +112,14 @@ export const coralScene: SceneModule = {
       if (colony) trajectories.push(colonyOrbit(colony, seabed.heightAt, `${kind}-coral-orbit`));
     }
 
+    trajectories.push(
+      lookAtTrajectory(
+        'surface-look-up',
+        [new THREE.Vector3(-3, SURFACE_Y - 5, -2), new THREE.Vector3(3, SURFACE_Y - 2.8, 0)],
+        [new THREE.Vector3(2, SURFACE_Y, 0), new THREE.Vector3(3.7, SURFACE_Y, 0.8)],
+        0.65,
+      ),
+    );
     return {
       root,
       classes: CLASS_LIST,
@@ -118,6 +128,7 @@ export const coralScene: SceneModule = {
       spawn: trajectories[1].poses[0],
       groundHeight: seabed.heightAt,
       trajectories,
+      setSurface: surface.update,
       setCaustics: seabed.setCaustics,
       setCurrent: sway.update,
       dispose: () => {
