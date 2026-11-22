@@ -24,6 +24,7 @@ export interface BuiltScene {
   trajectories: readonly Trajectory[];
   /** Animation hook driven by simulation time (never wall-clock time). */
   update?(time: number, dt: number): void;
+  setCaustics?(time: number, visibility: number): void;
   dispose(): void;
 }
 

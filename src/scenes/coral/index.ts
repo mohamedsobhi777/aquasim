@@ -112,6 +112,7 @@ export const coralScene: SceneModule = {
       spawn: trajectories[1].poses[0],
       groundHeight: seabed.heightAt,
       trajectories,
+      setCaustics: seabed.setCaustics,
       dispose: () => disposeTree(root),
     };
   },

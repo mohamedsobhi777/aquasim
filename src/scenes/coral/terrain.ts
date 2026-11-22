@@ -6,12 +6,15 @@ import { tagSemantic } from '../../core/semantics';
 import { makeFoulingTexture } from '../../core/textures';
 import { CLASSES, FIELD_SIZE, SEABED_Y } from './layout';
 
+import { addSeabedCaustics } from './caustics';
+
 const CHUNKS = 6;
 const LEVEL_SEGMENTS = [48, 24, 12, 6];
 const MAX_ERROR_PIXELS = 1.5;
 
 export interface ReefSeabed {
   object: THREE.Object3D;
+  setCaustics(time: number, visibility: number): void;
   heightAt(x: number, z: number): number;
 }
 
@@ -56,5 +59,5 @@ export function createReefSeabed(seed: number, rng: Rng): ReefSeabed {
     maxErrorPixels: MAX_ERROR_PIXELS,
   });
   tagSemantic(group, CLASSES.sand.id);
-  return { object: group, heightAt };
+  return { object: group, heightAt, setCaustics: addSeabedCaustics(material) };
 }

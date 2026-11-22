@@ -60,6 +60,7 @@ tests/                    vitest unit tests
 
 - **Shadows inside the beams**: the lamp in-scatter march samples each lamp's
   shadow map, so structures cast dark shafts through the lit water.
+- **Reef caustics**: moving bands of sunlight cross the sand. Switch *Water → seabed caustics* on or off in the reef scene. The pattern follows simulation time and fades with depth and turbidity.
 - **Robot wake**: particles near the recent robot path are pushed along and
   aside by its motion.
 - **Kicked-up sediment**: below about 1.8 m altitude the thrusters lift silt

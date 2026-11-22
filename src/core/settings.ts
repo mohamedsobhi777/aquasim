@@ -6,7 +6,7 @@ export type CameraMode = 'robot' | 'world';
 export interface SimSettings {
   sceneId: string;
   seed: number;
-  water: { presetId: string; turbidity: number; enabled: boolean; daylight: number };
+  water: { presetId: string; turbidity: number; enabled: boolean; daylight: number; caustics: boolean };
   lamps: {
     on: boolean;
     intensity: number;
@@ -29,7 +29,7 @@ export interface SimSettings {
 export const DEFAULT_SETTINGS: SimSettings = {
   sceneId: 'installation',
   seed: 7,
-  water: { presetId: 'clear-ocean', turbidity: 0.08, enabled: true, daylight: 6 },
+  water: { presetId: 'clear-ocean', turbidity: 0.08, enabled: true, daylight: 6, caustics: true },
   lamps: { on: true, intensity: 60, angleDeg: 30, spacing: 1.6, scatter: 1, shadows: true, beamShadows: true },
   particles: { count: 6000, currentSpeed: 0.12, wake: true },
   sediment: { enabled: true, strength: 1 },
