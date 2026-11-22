@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { excludeFromLabels } from '../../core/semantics';
-import { patchUnderwater } from '../../core/water';
-import { FIELD_SIZE, SURFACE_Y } from './layout';
+import { excludeFromLabels } from './semantics';
+import { patchUnderwater } from './water';
+import { lookAtTrajectory } from './trajectory';
 
 /** Height and horizontal gradient of two crossing swells. Coordinates and amplitudes are in metres. */
 const waves = /* glsl */ `
@@ -15,12 +15,12 @@ const waves = /* glsl */ `
   varying vec3 vWavePosition;
 `;
 
-export function createReefSurface() {
+export function createWaveSurface(size: number) {
   const time = { value: 0 },
     light = { value: 1 };
   const material = patchUnderwater(new THREE.MeshBasicMaterial({ side: THREE.BackSide }));
   const underwater = material.onBeforeCompile.bind(material);
-  material.customProgramCacheKey = () => 'aquasim-water:reef-surface';
+  material.customProgramCacheKey = () => 'aquasim-water:wave-surface';
   material.onBeforeCompile = (shader, renderer) => {
     underwater(shader, renderer);
     shader.uniforms.uWaveTime = time;
@@ -57,11 +57,9 @@ export function createReefSurface() {
     `,
       );
   };
-  const size = FIELD_SIZE * 2;
   const geometry = new THREE.PlaneGeometry(size, size, 160, 160).rotateX(-Math.PI / 2);
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.y = SURFACE_Y;
-  mesh.name = 'reef-wave-surface';
+  mesh.name = 'wave-surface';
   excludeFromLabels(mesh);
   return {
     mesh,
@@ -71,4 +69,13 @@ export function createReefSurface() {
       mesh.visible = visible;
     },
   };
+}
+
+export function surfaceLookUp(surfaceY: number) {
+  return lookAtTrajectory(
+    'surface-look-up',
+    [new THREE.Vector3(-3, surfaceY - 5, -2), new THREE.Vector3(3, surfaceY - 2.8, 0)],
+    [new THREE.Vector3(2, surfaceY, 0), new THREE.Vector3(3.7, surfaceY, 0.8)],
+    0.65,
+  );
 }

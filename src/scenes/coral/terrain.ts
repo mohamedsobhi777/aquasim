@@ -4,9 +4,9 @@ import { patchUnderwater } from '../../core/water';
 import { createValueNoise2D, type Rng } from '../../core/rng';
 import { tagSemantic } from '../../core/semantics';
 import { makeFoulingTexture } from '../../core/textures';
-import { CLASSES, FIELD_SIZE, SEABED_Y } from './layout';
+import { CLASSES, FIELD_SIZE, SEABED_Y, SURFACE_Y } from './layout';
 
-import { addSeabedCaustics } from './caustics';
+import { addSeabedCaustics } from '../../core/caustics';
 
 const CHUNKS = 6;
 const LEVEL_SEGMENTS = [48, 24, 12, 6];
@@ -59,5 +59,5 @@ export function createReefSeabed(seed: number, rng: Rng): ReefSeabed {
     maxErrorPixels: MAX_ERROR_PIXELS,
   });
   tagSemantic(group, CLASSES.sand.id);
-  return { object: group, heightAt, setCaustics: addSeabedCaustics(material) };
+  return { object: group, heightAt, setCaustics: addSeabedCaustics(material, SURFACE_Y) };
 }

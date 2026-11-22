@@ -61,8 +61,8 @@ tests/                    vitest unit tests
 - **Shadows inside the beams**: the lamp in-scatter march samples each lamp's
   shadow map, so structures cast dark shafts through the lit water.
 - **Fan coral sway**: fan bases stay anchored while the tips flex with the current. Use *Suspended particles → current (m/s)* to vary the flow or set it to zero. Replay *fan-coral-orbit* for a close view. RGB, depth, labels and headlight shadows follow the same deformation.
-- **Wave surface**: replay *surface-look-up* in the reef for an ascending view of the moving sky window. Toggle it under *Water → wave surface*. The surface appears in RGB only, so open water keeps zero depth and IDs.
-- **Reef caustics**: moving bands of sunlight cross the sand. Switch *Water → seabed caustics* on or off in the reef scene. The pattern follows simulation time and fades with depth and turbidity.
+- **Wave surface**: replay *surface-look-up* in any scene for an ascending view of the moving sky window. Toggle it under *Water → wave surface*. The surface appears in RGB only, so open water keeps zero depth and IDs.
+- **Seabed caustics**: moving bands of sunlight cross the sand. Switch *Water → seabed caustics* on or off in any scene. The pattern follows simulation time and fades with depth and turbidity.
 - **Robot wake**: particles near the recent robot path are pushed along and
   aside by its motion.
 - **Kicked-up sediment**: below about 1.8 m altitude the thrusters lift silt

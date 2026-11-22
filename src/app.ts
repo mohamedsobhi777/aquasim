@@ -20,6 +20,8 @@ import { computeWaterCoefficients } from './core/waterModel';
 import { reportToCsv, runEvaluation, type EvalHost, type EvaluationReport } from './eval/runner';
 import { findScene } from './scenes/registry';
 
+import { createWaveSurface, surfaceLookUp } from './core/waveSurface';
+
 const BACKDROP_RADIUS = 300;
 const CURRENT_DIRECTION = new THREE.Vector3(1, 0, 0.35).normalize();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -63,6 +65,7 @@ export class AquaSimApp {
   lodStats: LodStats = { triangles: 0, perLevel: [] };
   private readonly hemisphere = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
   private readonly downwelling = new THREE.DirectionalLight(0xffffff, 1);
+  private readonly surface = createWaveSurface(BACKDROP_RADIUS);
   private readonly backdrop: THREE.Mesh;
   private built?: BuiltScene;
   private instances: InstanceRecord[] = [];
@@ -104,6 +107,7 @@ export class AquaSimApp {
       this.hemisphere,
       this.downwelling,
       this.backdrop,
+      this.surface.mesh,
       this.rov.body,
       this.particles.points,
       this.sediment.mesh,
@@ -121,7 +125,8 @@ export class AquaSimApp {
     }
     const { sceneId, seed } = this.settings;
     const built = findScene(sceneId).build({ seed, rng: createRng(seed) });
-    this.built = built;
+    this.built = { ...built, trajectories: [...built.trajectories, surfaceLookUp(built.surfaceHeight)] };
+    this.surface.mesh.position.y = built.surfaceHeight;
     this.scene.add(built.root);
     this.instances = this.passes.prepare(built.root, built.classes);
     this.lods = lodUpdaters(built.root);
@@ -203,8 +208,8 @@ export class AquaSimApp {
     const { presetId, turbidity, enabled, daylight } = this.settings.water;
     const c = computeWaterCoefficients({ presetId, turbidity, depth });
     setWaterCoefficients(c, enabled);
-    this.scenario.setSurface?.(this.clock.now, daylight, enabled && this.settings.water.waves);
-    this.scenario.setCaustics?.(this.clock.now, enabled && this.settings.water.caustics ? Math.exp(-4 * turbidity) : 0);
+    this.surface.update(this.clock.now, daylight, enabled && this.settings.water.waves);
+    this.scenario.setCaustics(this.clock.now, enabled && this.settings.water.caustics ? Math.exp(-4 * turbidity) : 0);
     const ambient = new THREE.Color(c.ambient[0], c.ambient[1], c.ambient[2]);
     this.hemisphere.color.copy(ambient).multiplyScalar(enabled ? daylight * 0.35 : 1.2);
     this.hemisphere.groundColor.copy(ambient).multiplyScalar(enabled ? daylight * 0.05 : 0.3);

@@ -1,13 +1,12 @@
 import * as THREE from 'three';
-import { SURFACE_Y } from './layout';
 
-/** Modulate the reef's diffuse skylight before water attenuation. Lamps and labels use separate paths. */
-export function addSeabedCaustics(material: THREE.MeshStandardMaterial) {
+/** Modulate the seabed's diffuse skylight before water attenuation. Lamps and labels use separate paths. */
+export function addSeabedCaustics(material: THREE.MeshStandardMaterial, surfaceHeight: number) {
   const time = { value: 0 };
   const strength = { value: 0 };
   const underwater = material.onBeforeCompile.bind(material);
   const underwaterKey = material.customProgramCacheKey();
-  material.customProgramCacheKey = () => underwaterKey + ':seabed-caustics';
+  material.customProgramCacheKey = () => underwaterKey + ':seabed-caustics:' + surfaceHeight;
   material.onBeforeCompile = (shader, renderer) => {
     underwater(shader, renderer);
     shader.uniforms.uCausticTime = time;
@@ -37,9 +36,10 @@ export function addSeabedCaustics(material: THREE.MeshStandardMaterial) {
       #include <lights_fragment_end>
       vec2 p = vSeabedPosition.xz * 2.4;
       float ridge = causticRidge(p, uCausticTime * 0.42);
-      float depthFade = exp(-0.055 * max(0.0, ${SURFACE_Y.toFixed(1)} - vSeabedPosition.y));
+      float depthFade = exp(-0.055 * max(0.0, ${surfaceHeight.toFixed(3)} - vSeabedPosition.y));
       float distanceFade = 1.0 - smoothstep(12.0, 32.0, length(vWaterView));
-      reflectedLight.indirectDiffuse *= 1.0 + uCausticStrength * depthFade * distanceFade * (4.0 * ridge - 0.45);
+      float patchStrength = 0.35 + 0.65 * smoothstep(-0.7, 0.7, sin(p.x * 0.13) + sin(p.y * 0.21 + p.x * 0.07));
+      reflectedLight.indirectDiffuse *= 1.0 + uCausticStrength * depthFade * distanceFade * (2.1 * ridge - 0.22) * patchStrength;
     `,
       );
   };

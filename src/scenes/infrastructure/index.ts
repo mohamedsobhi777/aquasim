@@ -171,6 +171,7 @@ export const infrastructureScene: SceneModule = {
       root,
       classes: CLASS_LIST,
       water: { presetId: 'clear-ocean', turbidity: 0.08 },
+      setCaustics: seabed.setCaustics,
       surfaceHeight: SURFACE_Y,
       spawn: trajectories[0].poses[0],
       groundHeight: seabed.heightAt,

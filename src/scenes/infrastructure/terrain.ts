@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { createTerrainLod } from '../../core/terrainLod';
+import { addSeabedCaustics } from '../../core/caustics';
 import { patchUnderwater } from '../../core/water';
 import { createValueNoise2D, type Rng } from '../../core/rng';
 import { tagSemantic } from '../../core/semantics';
-import { CLASSES, FIELD_SIZE, PADS, SEABED_Y } from './layout';
+import { CLASSES, FIELD_SIZE, PADS, SEABED_Y, SURFACE_Y } from './layout';
 import { makeFoulingTexture } from '../../core/textures';
 
 /** 8 x 8 chunks; the finest level matches the old single 220 x 220 grid closely (0.66 m spacing). */
@@ -14,6 +15,7 @@ const MAX_ERROR_PIXELS = 1.5;
 
 export interface Seabed {
   object: THREE.Object3D;
+  setCaustics(time: number, visibility: number): void;
   heightAt(x: number, z: number): number;
 }
 
@@ -66,5 +68,5 @@ export function createSeabed(seed: number, rng: Rng): Seabed {
     maxErrorPixels: MAX_ERROR_PIXELS,
   });
   tagSemantic(group, CLASSES.seabed.id);
-  return { object: group, heightAt };
+  return { object: group, heightAt, setCaustics: addSeabedCaustics(material, SURFACE_Y) };
 }

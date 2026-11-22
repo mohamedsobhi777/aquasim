@@ -41,6 +41,7 @@ export const pipeSite: SceneModule = {
       root,
       classes: [CLASSES.seabed, CLASSES.pipeline, CLASSES.pipeSupport, CLASSES.fieldJoint, CLASSES.rock],
       water: { presetId: 'clear-ocean', turbidity: 0.08 },
+      setCaustics: seabed.setCaustics,
       surfaceHeight: SURFACE_Y,
       spawn: poses[0],
       trajectories: [{ name: 'pipe-flange', poses }],

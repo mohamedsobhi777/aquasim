@@ -34,10 +34,8 @@ export function createPanel(app: AquaSimApp): GUI {
   water.add(s.water, 'daylight', 0, 20, 0.1).name('surface light');
   water.add(s.water, 'enabled').name('water effects');
 
-  const waves = water.add(s.water, 'waves').name('wave surface');
-  waves.show(!!app.scenario.setSurface);
-  const caustics = water.add(s.water, 'caustics').name('seabed caustics');
-  caustics.show(!!app.scenario.setCaustics);
+  water.add(s.water, 'waves').name('wave surface');
+  water.add(s.water, 'caustics').name('seabed caustics');
 
   const lamps = gui.addFolder('Lamps');
   lamps.add(s.lamps, 'on').onChange(apply);
@@ -87,8 +85,6 @@ export function createPanel(app: AquaSimApp): GUI {
   function reloadScene(): void {
     app.loadScene();
     quickPipe.show(s.sceneId === 'infrastructure');
-    waves.show(!!app.scenario.setSurface);
-    caustics.show(!!app.scenario.setCaustics);
     trajectoryController.options(names());
     choice.trajectory = names()[0] ?? '';
     gui.controllersRecursive().forEach((c) => c.updateDisplay());
