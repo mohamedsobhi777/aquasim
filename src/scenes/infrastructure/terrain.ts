@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { createTerrainLod } from '../../core/terrainLod';
 import { patchUnderwater } from '../../core/water';
 import { createValueNoise2D, type Rng } from '../../core/rng';
-import { FIELD_SIZE, SEABED_Y } from './layout';
+import { tagSemantic } from '../../core/semantics';
+import { CLASSES, FIELD_SIZE, PADS, SEABED_Y } from './layout';
 import { makeFoulingTexture } from '../../core/textures';
 
-/** 8 x 8 chunks; the finest level has 0.66 m grid spacing. */
+/** 8 x 8 chunks; the finest level matches the old single 220 x 220 grid closely (0.66 m spacing). */
 const CHUNKS = 8;
 const LEVEL_SEGMENTS = [32, 16, 8, 4];
 /** Chunks drop detail once their height error would cover fewer pixels than this. */
@@ -22,11 +23,20 @@ export function createSeabed(seed: number, rng: Rng): Seabed {
   const rippleAngle = rng.range(0, Math.PI);
   const rippleDir = new THREE.Vector2(Math.cos(rippleAngle), Math.sin(rippleAngle));
 
-  const heightAt = (x: number, z: number): number =>
-    SEABED_Y +
-    2.2 * broad(x * 0.018, z * 0.018) +
-    0.45 * detail(x * 0.09, z * 0.09) +
-    0.05 * Math.sin((x * rippleDir.x + z * rippleDir.y) * 2.4 + 0.6 * detail(x * 0.3, z * 0.3));
+  const heightAt = (x: number, z: number): number => {
+    const natural =
+      SEABED_Y +
+      2.2 * broad(x * 0.018, z * 0.018) +
+      0.45 * detail(x * 0.09, z * 0.09) +
+      0.05 * Math.sin((x * rippleDir.x + z * rippleDir.y) * 2.4 + 0.6 * detail(x * 0.3, z * 0.3));
+    // Level the seabed under installed structures.
+    let k = 1;
+    for (const pad of PADS) {
+      const d = Math.hypot(x - pad.center.x, z - pad.center.y);
+      k = Math.min(k, THREE.MathUtils.smoothstep(d, pad.radius * 0.6, pad.radius));
+    }
+    return SEABED_Y + (natural - SEABED_Y) * k;
+  };
 
   const sand = new THREE.Color(0xb8a98a);
   const silt = new THREE.Color(0x6f6a58);
@@ -45,7 +55,7 @@ export function createSeabed(seed: number, rng: Rng): Seabed {
     }),
   );
 
-  const object = createTerrainLod({
+  const { group } = createTerrainLod({
     name: 'seabed',
     size: FIELD_SIZE,
     heightAt,
@@ -55,5 +65,6 @@ export function createSeabed(seed: number, rng: Rng): Seabed {
     levelSegments: LEVEL_SEGMENTS,
     maxErrorPixels: MAX_ERROR_PIXELS,
   });
-  return { object, heightAt };
+  tagSemantic(group, CLASSES.seabed.id);
+  return { object: group, heightAt };
 }

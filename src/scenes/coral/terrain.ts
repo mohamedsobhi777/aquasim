@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { createTerrainLod } from '../../core/terrainLod';
 import { patchUnderwater } from '../../core/water';
 import { createValueNoise2D, type Rng } from '../../core/rng';
+import { tagSemantic } from '../../core/semantics';
 import { makeFoulingTexture } from '../../core/textures';
-import { FIELD_SIZE, SEABED_Y } from './layout';
+import { CLASSES, FIELD_SIZE, SEABED_Y } from './layout';
 
 const CHUNKS = 6;
 const LEVEL_SEGMENTS = [48, 24, 12, 6];
@@ -44,7 +45,7 @@ export function createReefSeabed(seed: number, rng: Rng): ReefSeabed {
     }),
   );
 
-  const object = createTerrainLod({
+  const { group } = createTerrainLod({
     name: 'sand',
     size: FIELD_SIZE,
     heightAt,
@@ -54,5 +55,6 @@ export function createReefSeabed(seed: number, rng: Rng): ReefSeabed {
     levelSegments: LEVEL_SEGMENTS,
     maxErrorPixels: MAX_ERROR_PIXELS,
   });
-  return { object, heightAt };
+  tagSemantic(group, CLASSES.sand.id);
+  return { object: group, heightAt };
 }

@@ -32,12 +32,13 @@ function rockGeometry(seed: number, detail: number): THREE.BufferGeometry {
   return geometry;
 }
 
-/** Boulders and gravel: scattered rocks plus a few clustered outcrops (returned as x/z centres). */
+/** Boulders and gravel: scattered rocks plus a few clustered outcrops. */
 export function createRocks(
   seed: number,
   rng: Rng,
   heightAt: (x: number, z: number) => number,
-): { object: THREE.Object3D; outcrops: THREE.Vector2[] } {
+  allowsRock: (x: number, z: number, radius: number) => boolean,
+): THREE.Object3D {
   const half = FIELD_SIZE / 2 - 4;
   const clusters = Array.from(
     { length: ROCK_CLUSTERS },
@@ -57,6 +58,8 @@ export function createRocks(
       : rng.chance(0.85)
         ? rng.range(0.12, 0.5)
         : rng.range(0.7, 1.5);
+    // Maximum radial displacement (1.35) times the largest axis scale (1.3).
+    if (!allowsRock(x, z, scale * 1.35 * 1.3)) continue;
     rocks.push(
       new THREE.Matrix4().compose(
         new THREE.Vector3(x, heightAt(x, z) + scale * 0.15, z),
@@ -74,5 +77,5 @@ export function createRocks(
     rockMaterial,
     rocks,
   );
-  return { object: rockLod.group, outcrops: clusters };
+  return rockLod.group;
 }

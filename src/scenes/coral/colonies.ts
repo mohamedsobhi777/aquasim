@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { Rng } from '../../core/rng';
+import { tagSemantic } from '../../core/semantics';
 import { patchUnderwater } from '../../core/water';
-import { FIELD_SIZE } from './layout';
+import { CLASSES, FIELD_SIZE } from './layout';
 import { brainCoral_generate, branchingCoral_generate } from './reef';
 
 const PATCH_COUNT = 5;
@@ -92,6 +93,8 @@ export function createColonies(
       .normalize();
     const mesh = build(base, normal);
     mesh.name = `${kind}-coral-${index}`;
+    mesh.castShadow = mesh.receiveShadow = true;
+    tagSemantic(mesh, kind === 'brain' ? CLASSES.brainCoral.id : CLASSES.branchingCoral.id);
     group.add(mesh);
     colonies.push({ kind, mesh, base, radius, height });
   };
