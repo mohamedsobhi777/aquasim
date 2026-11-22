@@ -7,7 +7,11 @@ import {
 } from "./lib/utils";
 
 import CMApp_htmlTemplate from "./CMApp.html?raw";
-import { brainCoral_generate, branchingCoral_generate } from "./reef";
+import {
+  brainCoral_generate,
+  branchingCoral_generate,
+  fanCoral_generate,
+} from "./reef";
 import { setupGenericLightingEnvironment } from "./lib/graphics";
 import type { ScenarioOnCloseCallback } from "../types";
 
@@ -119,11 +123,10 @@ export class CMApp {
     );
 
     this.resize(window.innerWidth, window.innerHeight);
+    this.dev_resetCamPosition();
     this.init_scene();
 
     this.requestRender();
-
-    this.dev_resetCamPosition();
 
     // If not wait here, "transitionend" event will not be triggered inside hideBooting()
     await waitAsync(10);
@@ -199,16 +202,25 @@ export class CMApp {
     // });
     // scene.add(branchingCoral);
 
-    const brainCoral = brainCoral_generate({
+    // const brainCoral = brainCoral_generate({
+    //   root_pt: new THREE.Vector3(0, 0, 0),
+    //   root_normalVec: new THREE.Vector3(0, 1, 0),
+    //   material: new THREE.MeshStandardMaterial({ color: "#ad592b" }),
+    //   x_size: 0.55,
+    //   z_size: 0.6,
+    //   height: 0.3,
+    //   seedHash: `${worldSeed}/coral/brain/1`,
+    // });
+    // scene.add(brainCoral);
+
+    const fanCoral = fanCoral_generate({
       root_pt: new THREE.Vector3(0, 0, 0),
       root_normalVec: new THREE.Vector3(0, 1, 0),
-      material: new THREE.MeshStandardMaterial({ color: "#ad592b" }),
-      x_size: 0.55,
-      z_size: 0.6,
-      height: 0.3,
-      seedHash: `${worldSeed}/coral/brain/1`,
+      height: 1.5,
+      material: new THREE.MeshStandardMaterial({ color: "#e74230" }),
+      seedHash: `${worldSeed}/coral/fan/1`,
     });
-    scene.add(brainCoral);
+    scene.add(fanCoral);
   }
 
   showBooting() {

@@ -9,7 +9,7 @@ import weightedSelect from "./lib-external/weighted";
 import {
   projectPointOnVec,
   randMultipleWithMinDist,
-  randRange
+  randRange,
 } from "./lib/math";
 import FastNoiseLite from "./lib-external/fastnoise-lite";
 
@@ -1344,4 +1344,319 @@ function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
   }
 
   return H;
+}
+
+export function fanCoral_generate(params: {
+  root_pt: THREE.Vector3;
+  root_normalVec: THREE.Vector3;
+  height: number;
+  material: THREE.MeshStandardMaterial;
+  seedHash: string;
+}) {
+  type Branch = {
+    start: THREE.Vector3;
+    end: THREE.Vector3;
+    startRadius: number;
+    endRadius: number;
+    angle: number;
+    isTerminal?: boolean;
+  };
+  type GeometryData = {
+    positions: number[];
+    normals: number[];
+    indices: number[];
+  };
+
+  const mainBranch_maxLevel = 3;
+  const mainBranch_segmentCnt = 3;
+  const tinyBranch_maxLevel = 5;
+  const mainBranch_min = 0.025;
+  const mainBranch_max = 0.032;
+  const tinyBranch_min = 0.001;
+  const tinyBranch_max = 0.0016;
+  const radialSegments = 6;
+  const { root_pt, root_normalVec, height, material, seedHash } = params;
+
+  // #region [sub]
+  const addBranch = (
+    branch: Branch,
+    geometryData: GeometryData,
+  ) => {
+    const { start, end, startRadius, endRadius } = branch;
+    const { positions, normals, indices } = geometryData;
+    const direction = end.clone().sub(start).normalize();
+    const side = new THREE.Vector3(direction.y, -direction.x, 0).normalize();
+    const depth = new THREE.Vector3().crossVectors(side, direction).normalize();
+    const firstVertex = positions.length / 3;
+
+    for (let ring = 0; ring < 2; ring++) {
+      const center = ring === 0 ? start : end;
+      const radius = ring === 0 ? startRadius : endRadius;
+
+      for (let i = 0; i < radialSegments; i++) {
+        const angle = (i / radialSegments) * TAU;
+        const normal = side
+          .clone()
+          .multiplyScalar(Math.cos(angle))
+          .addScaledVector(depth, Math.sin(angle));
+        const point = center.clone().addScaledVector(normal, radius);
+        point.y = Math.max(0, point.y);
+        positions.push(point.x, point.y, point.z);
+        normals.push(normal.x, normal.y, normal.z);
+      }
+    }
+
+    for (let i = 0; i < radialSegments; i++) {
+      const next = (i + 1) % radialSegments;
+      const a = firstVertex + i;
+      const b = firstVertex + next;
+      const c = firstVertex + radialSegments + i;
+      const d = firstVertex + radialSegments + next;
+      indices.push(a, c, b, b, c, d);
+    }
+  };
+
+  const growMainBranch = (
+    start: THREE.Vector3,
+    angle: number,
+    length: number,
+    radius: number,
+    level: number,
+    branches: Branch[],
+    randFn: RandomFunc,
+  ) => {
+    const isTerminal = level === mainBranch_maxLevel;
+    const endRadius =
+      radius * (isTerminal ? 0.14 + randFn() * 0.12 : 0.65 + randFn() * 0.2);
+    let segmentStart = start;
+    let segmentAngle = angle;
+
+    for (let i = 0; i < mainBranch_segmentCnt; i++) {
+      segmentAngle = THREE.MathUtils.clamp(
+        segmentAngle + (randFn() - 0.5) * 0.28,
+        -1.15,
+        1.15,
+      );
+      const segmentLength =
+        (length / mainBranch_segmentCnt) * (0.85 + randFn() * 0.3);
+      const segmentEnd = segmentStart.clone().add(
+        new THREE.Vector3(
+          Math.sin(segmentAngle) * segmentLength,
+          Math.cos(segmentAngle) * segmentLength,
+          (randFn() - 0.5) * segmentLength * 0.08,
+        ),
+      );
+      branches.push({
+        start: segmentStart,
+        end: segmentEnd,
+        startRadius: THREE.MathUtils.lerp(
+          radius,
+          endRadius,
+          i / mainBranch_segmentCnt,
+        ),
+        endRadius: THREE.MathUtils.lerp(
+          radius,
+          endRadius,
+          (i + 1) / mainBranch_segmentCnt,
+        ),
+        angle: segmentAngle,
+        isTerminal: isTerminal && i === mainBranch_segmentCnt - 1,
+      });
+      segmentStart = segmentEnd;
+    }
+
+    if (level >= mainBranch_maxLevel) {
+      return;
+    }
+
+    for (const sign of [-1, 1]) {
+      growMainBranch(
+        segmentStart,
+        THREE.MathUtils.clamp(
+          segmentAngle * (0.65 + randFn() * 0.25) +
+            sign * (0.18 + randFn() * 0.5),
+          -1.15,
+          1.15,
+        ),
+        length * (0.6 + randFn() * 0.5),
+        endRadius,
+        level + 1,
+        branches,
+        randFn,
+      );
+    }
+  };
+
+  const growTinyBranch = (
+    start: THREE.Vector3,
+    angle: number,
+    length: number,
+    radius: number,
+    level: number,
+    geometryData: GeometryData,
+    randFn: RandomFunc,
+  ) => {
+    if (start.y >= 1 - radius) {
+      return;
+    }
+
+    const end = start.clone().add(
+      new THREE.Vector3(
+        Math.sin(angle) * length,
+        Math.cos(angle) * length,
+        (randFn() - 0.5) * length * 0.08,
+      ),
+    );
+    end.y = Math.min(end.y, 1 - radius);
+    addBranch(
+      { start, end, startRadius: radius, endRadius: radius, angle },
+      geometryData,
+    );
+
+    if (level >= tinyBranch_maxLevel || end.y >= 1 - radius) {
+      return;
+    }
+
+    for (const sign of [-1, 1]) {
+      growTinyBranch(
+        end,
+        THREE.MathUtils.clamp(
+          angle * 0.8 + sign * (0.3 + randFn() * 0.3),
+          -1.3,
+          1.3,
+        ),
+        length * (0.78 + randFn() * 0.1),
+        radius,
+        level + 1,
+        geometryData,
+        randFn,
+      );
+    }
+  };
+  // #endregion [sub]
+
+  if (!Number.isFinite(height) || height <= 0) {
+    throw new RangeError("Fan coral height must be a positive finite number");
+  }
+  if (
+    !Number.isFinite(root_normalVec.x) ||
+    !Number.isFinite(root_normalVec.y) ||
+    !Number.isFinite(root_normalVec.z) ||
+    root_normalVec.lengthSq() === 0
+  ) {
+    throw new RangeError(
+      "Fan coral root normal must be a finite nonzero vector",
+    );
+  }
+  if (![root_pt.x, root_pt.y, root_pt.z].every(Number.isFinite)) {
+    throw new RangeError("Fan coral root point must be finite");
+  }
+
+  const randFn = seedrandom(seedHash);
+  const mainBranch_initialRadius = randRange({
+    a: mainBranch_min,
+    b: mainBranch_max,
+    randFn,
+  });
+  const tinyBranch_radius = THREE.MathUtils.clamp(
+    mainBranch_initialRadius * 0.2,
+    tinyBranch_min,
+    tinyBranch_max,
+  );
+  const mainBranches: Branch[] = [];
+  const geometryData: GeometryData = { positions: [], normals: [], indices: [] };
+
+  for (const sign of [-1, 1]) {
+    growMainBranch(
+      new THREE.Vector3(),
+      sign * (0.15 + randFn() * 0.4),
+      0.19 + randFn() * 0.12,
+      mainBranch_initialRadius,
+      1,
+      mainBranches,
+      randFn,
+    );
+  }
+
+  for (const branch of mainBranches) {
+    addBranch(branch, geometryData);
+  }
+
+  for (const branch of mainBranches) {
+    const side = new THREE.Vector3(
+      Math.cos(branch.angle),
+      -Math.sin(branch.angle),
+      0,
+    );
+    for (let i = 0; i < 2; i++) {
+      const fraction = 0.16 + (0.8 * (i + 0.5 + (randFn() - 0.5) * 0.4)) / 2;
+      const radius = THREE.MathUtils.lerp(
+        branch.startRadius,
+        branch.endRadius,
+        fraction,
+      );
+      for (const sign of [-1, 1]) {
+        const start = branch.start
+          .clone()
+          .lerp(branch.end, fraction)
+          .addScaledVector(
+            side,
+            sign * Math.max(0, radius - tinyBranch_radius * 2),
+          );
+        growTinyBranch(
+          start,
+          THREE.MathUtils.clamp(
+            branch.angle + sign * (0.45 + randFn() * 0.35),
+            -1.3,
+            1.3,
+          ),
+          0.065 + randFn() * 0.025,
+          tinyBranch_radius,
+          1,
+          geometryData,
+          randFn,
+        );
+      }
+    }
+    if (branch.isTerminal) {
+      for (const sign of [-1, 1]) {
+        growTinyBranch(
+          branch.end.clone().addScaledVector(
+            side,
+            sign * Math.max(0, branch.endRadius - tinyBranch_radius * 2),
+          ),
+          THREE.MathUtils.clamp(branch.angle + sign * 0.25, -1.3, 1.3),
+          0.065 + randFn() * 0.025,
+          tinyBranch_radius,
+          1,
+          geometryData,
+          randFn,
+        );
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(geometryData.positions, 3),
+  );
+  geometry.setAttribute(
+    "normal",
+    new THREE.Float32BufferAttribute(geometryData.normals, 3),
+  );
+  geometry.setIndex(geometryData.indices);
+  geometry.computeBoundingBox();
+  const scale = height / geometry.boundingBox!.max.y;
+  geometry.scale(scale, scale, scale);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.copy(root_pt);
+  mesh.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    root_normalVec.clone().normalize(),
+  );
+  return mesh;
 }
