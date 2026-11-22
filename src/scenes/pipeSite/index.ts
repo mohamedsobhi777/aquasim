@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { disposeTree } from '../../core/dispose';
+import { createRng } from '../../core/rng';
+import { makeFoulingTexture } from '../../core/textures';
 import { createPipeline } from './pipeline';
 import type { BuiltScene, SceneModule } from '../../core/sceneModule';
 import { SURFACE_Y } from './layout';
@@ -17,7 +19,12 @@ export const pipeSite: SceneModule = {
     root.name = 'infrastructure';
 
     const seabed = createSeabed(seed, rng);
-    const pipeline = createPipeline(seabed.heightAt);
+    const coatingMap = makeFoulingTexture(
+      createRng(seed),
+      { base: '#c29a50', blotches: ['#5c5039', '#70543c', '#7b7850', '#c4ad74'], blotchCount: 185, grain: 0.12 },
+      [1, 4],
+    );
+    const pipeline = createPipeline(seabed.heightAt, coatingMap, seed);
     const rocks = createRocks(seed, rng, seabed.heightAt, pipeline.allowsRock);
     tagSemantic(seabed.object, CLASSES.seabed.id);
     tagSemantic(rocks, CLASSES.rock.id);

@@ -4,7 +4,7 @@ import { pipeSite } from './pipeSite';
 import { infrastructureScene } from './infrastructure';
 
 /** Scenario registry; every scenario implements SceneModule. */
-export const SCENES: readonly SceneModule[] = [pipeSite, infrastructureScene, coralScene];
+export const SCENES: readonly SceneModule[] = [infrastructureScene, pipeSite, coralScene];
 
 export function findScene(id: string): SceneModule {
   const scene = SCENES.find((s) => s.id === id);

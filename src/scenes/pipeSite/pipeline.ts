@@ -1,8 +1,12 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { tagSemantic } from '../../core/semantics';
 import { CLASSES } from '../infrastructure/layout';
 import { lookAtPose } from '../../core/pose';
 import { patchUnderwater } from '../../core/water';
+
+import { makeRustMap } from './rust';
+import { pipeSupportGeometry } from './support';
 
 const START = -12;
 const JOINT = 0;
@@ -10,7 +14,7 @@ const END = 10;
 const RADIUS = 0.42;
 const ROUTE_OFFSET = 5;
 
-export function createPipeline(heightAt: (x: number, z: number) => number) {
+export function createPipeline(heightAt: (x: number, z: number) => number, coatingMap?: THREE.Texture, seed = 0) {
   const group = new THREE.Group();
   group.name = 'inspection-pipeline';
 
@@ -19,15 +23,28 @@ export function createPipeline(heightAt: (x: number, z: number) => number) {
   for (let x = START; x <= END; x += 0.5) bed = Math.max(bed, heightAt(x, 0));
   const axisY = bed + 1.4;
   const axis = (x: number) => new THREE.Vector3(x, axisY, 0);
-  const material = (color: number) => patchUnderwater(new THREE.MeshStandardMaterial({ color, roughness: 0.72 }));
-  const coating = material(0xcaa34c);
-  const steel = material(0x758890);
-  const bolts = material(0x3d474c);
-  const concrete = material(0x998e78);
+  const coating = patchUnderwater(
+    new THREE.MeshStandardMaterial({
+      color: coatingMap ? 0xffffff : 0xc29a50,
+      map: coatingMap ?? null,
+      roughness: 0.89,
+    }),
+  );
+  const rust = makeRustMap(seed);
+  const steel = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0x959286, map: rust, roughness: 0.64, metalness: 0.38 }),
+  );
+  const bolts = patchUnderwater(
+    new THREE.MeshStandardMaterial({ color: 0x827768, map: rust, roughness: 0.57, metalness: 0.45 }),
+  );
+  const supportMaterial = patchUnderwater(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86 }));
 
+  const supportSteel = patchUnderwater(
+    new THREE.MeshStandardMaterial({ vertexColors: true, map: rust, roughness: 0.78, metalness: 0.2 }),
+  );
   function add(
     geometry: THREE.BufferGeometry,
-    surface: THREE.Material,
+    surface: THREE.Material | THREE.Material[],
     kind: 'pipe' | 'joint' | 'support',
     name: string,
   ) {
@@ -48,22 +65,52 @@ export function createPipeline(heightAt: (x: number, z: number) => number) {
     span.position.copy(axis((start + end) / 2));
     for (const fraction of [0.22, 0.78]) {
       const x = THREE.MathUtils.lerp(start, end, fraction);
-      // Embed the footing slightly so its edges meet uneven terrain.
-      const bottom = heightAt(x, 0) - 0.25;
-      const top = axisY - 0.29;
-      const support = add(new THREE.BoxGeometry(0.7, top - bottom, 1.35), concrete, 'support', 'pipe-support');
-      support.position.set(x, (top + bottom) / 2, 0);
+      const ground = [-0.55, 0, 0.55].flatMap((dx) => [-0.96, 0, 0.96].map((z) => heightAt(x + dx, z) - axisY));
+      const bottom = Math.min(...ground) - 0.2;
+      const footingTop = Math.min(Math.max(...ground) + 0.22, -RADIUS - 0.25);
+      const support = add(
+        pipeSupportGeometry(RADIUS, bottom, footingTop),
+        [supportMaterial, supportSteel],
+        'support',
+        'pipe-support',
+      );
+      support.position.copy(axis(x));
     }
   }
 
-  for (const offset of [-0.1, 0.1]) {
-    const flange = add(new THREE.CylinderGeometry(0.68, 0.68, 0.16, 32), steel, 'joint', 'flange');
-    flange.rotation.z = -Math.PI / 2;
-    flange.position.copy(axis(JOINT + offset));
+  // Each radial profile runs from the gasket face to the tapered weld neck.
+  const profile = [
+    [0.41, 0.02],
+    [0.665, 0.02],
+    [0.68, 0.035],
+    [0.68, 0.158],
+    [0.665, 0.175],
+    [0.505, 0.175],
+    [0.475, 0.205],
+    [0.438, 0.34],
+    [0.421, 0.355],
+  ];
+  const flangeGeometry = new THREE.LatheGeometry(
+    profile.map(([r, y]) => new THREE.Vector2(r, y)),
+    64,
+  );
+  for (const side of [-1, 1]) {
+    const flange = add(flangeGeometry, steel, 'joint', 'flange');
+    flange.rotation.z = (-side * Math.PI) / 2;
+    flange.position.copy(axis(JOINT));
   }
+  // Model each fastener as one labelled object, including its head, nut and exposed stud.
+  const fastenerParts = [
+    new THREE.CylinderGeometry(0.039, 0.039, 0.495, 12),
+    new THREE.CylinderGeometry(0.072, 0.072, 0.052, 6).translate(0, -0.208, 0),
+    new THREE.CylinderGeometry(0.072, 0.072, 0.052, 6).translate(0, 0.208, 0),
+    ...[-1, 1].map((side) => new THREE.CylinderGeometry(0.08, 0.08, 0.009, 24).translate(0, side * 0.1795, 0)),
+  ];
+  const fastener = mergeGeometries(fastenerParts);
+  fastenerParts.forEach((part) => part.dispose());
   for (let i = 0; i < 8; i++) {
     const angle = (i * Math.PI) / 4;
-    const bolt = add(new THREE.CylinderGeometry(0.064, 0.064, 0.44, 6), bolts, 'joint', 'flange-bolt');
+    const bolt = add(fastener, bolts, 'joint', 'flange-bolt');
     bolt.rotation.z = -Math.PI / 2;
     bolt.position.set(JOINT, axisY + 0.55 * Math.cos(angle), 0.55 * Math.sin(angle));
   }

@@ -12,7 +12,7 @@ npm run typecheck
 
 ## Scenarios
 
-The default pipe site retains the 22 m pipeline and ten-second flange inspection. Select **Subsea production installation** for the jacket, riser, well template, manifold and six longer inspection paths. **Coral reef monitoring** includes Linh’s branching, brain, fan and plate corals. Select **fan-coral-orbit** or **plate-coral-orbit** under Inspection paths for a close view. Both growth forms have distinct class and instance labels in dataset captures. All three scenes support capture and evaluation.
+AquaSim opens at the well template in **Subsea production installation**. Its six inspection paths cover the jacket, riser, template, pipeline, umbilical and valve approach. Select **Pipe flange inspection** for the 22 m pipeline and ten-second flange inspection. **Coral reef monitoring** includes Linh’s branching, brain, fan and plate corals. Select **fan-coral-orbit** or **plate-coral-orbit** under Inspection paths for a close view. Both growth forms have distinct class and instance labels in dataset captures. All three scenes support capture and evaluation.
 
 The installation, external ROV view, capture and evaluation code were restored from the earlier AI-assisted prototype at `d03d529`. The flange scene and its integration were implemented with Codex assistance.
 

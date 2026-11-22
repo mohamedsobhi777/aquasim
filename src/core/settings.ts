@@ -27,7 +27,7 @@ export interface SimSettings {
 }
 
 export const DEFAULT_SETTINGS: SimSettings = {
-  sceneId: 'infrastructure',
+  sceneId: 'installation',
   seed: 7,
   water: { presetId: 'clear-ocean', turbidity: 0.08, enabled: true, daylight: 6 },
   lamps: { on: true, intensity: 60, angleDeg: 30, spacing: 1.6, scatter: 1, shadows: true, beamShadows: true },
