@@ -1363,6 +1363,7 @@ export function fanCoral_generate(params: {
   };
   type MainBranch = { segments: Branch[] };
   type BranchIndex = Map<string, Branch[]>;
+  type AngleRange = { min: number; max: number };
   type TinyGrowth = {
     start: THREE.Vector2;
     angle: number;
@@ -1375,7 +1376,7 @@ export function fanCoral_generate(params: {
     indices: number[];
   };
 
-  const mainBranch_maxLevel = 4;
+  const mainBranch_maxLevel = 3;
   const mainBranch_segmentCnt = 3;
   const mainBranch_minHeightRatio = 0.9;
   const mainBranch_targetHeight =
@@ -1384,11 +1385,12 @@ export function fanCoral_generate(params: {
   const mainBranch_max = 0.032;
   const tinyBranch_min = 0.001;
   const tinyBranch_max = 0.0016;
+  const tinyBranch_maxDeviation_deg = 120;
 
   // Distances are relative to the requested height.
   const tinyBranch_gapOnMain = 0.0025;
-  const tinyBranch_segmentLenStep = 0.02;
-  const tinyBranch_maxGrowthDistance = 0.3;
+  const tinyBranch_segmentLenStep = 0.01;
+  const tinyBranch_maxGrowthDistance = 0.21;
   const collisionCellSize = 0.1;
   const radialSegments = 6;
   const { root_pt, root_normalVec, height, material, seedHash } = params;
@@ -1572,14 +1574,29 @@ export function fanCoral_generate(params: {
     }
   };
 
-  const tinyBranch_boundAngle = (angle: number, minAngle: number) => {
-    const width = PI / 2 - minAngle;
+  const tinyBranch_boundAngle = (angle: number, ranges: AngleRange[]) => {
+    let range = ranges[0];
+    let distance = Math.max(range.min - angle, 0, angle - range.max);
+    for (let i = 1; i < ranges.length; i++) {
+      const candidate = ranges[i];
+      const candidateDistance = Math.max(
+        candidate.min - angle,
+        0,
+        angle - candidate.max,
+      );
+      if (candidateDistance < distance) {
+        range = candidate;
+        distance = candidateDistance;
+      }
+    }
+
+    const width = range.max - range.min;
     if (width < 1e-12) {
-      return minAngle;
+      return range.min;
     }
     const period = 2 * width;
-    const offset = ((angle - minAngle) % period + period) % period;
-    return minAngle + (offset <= width ? offset : period - offset);
+    const offset = ((angle - range.min) % period + period) % period;
+    return range.min + (offset <= width ? offset : period - offset);
   };
 
   const addBranch = (branch: Branch, geometryData: GeometryData) => {
@@ -1741,7 +1758,7 @@ export function fanCoral_generate(params: {
   const growTinyBranch = (
     growth: TinyGrowth,
     radius: number,
-    minAngle: number,
+    angleRanges: AngleRange[],
     index: BranchIndex,
     branches: Branch[],
     pending: TinyGrowth[],
@@ -1766,6 +1783,9 @@ export function fanCoral_generate(params: {
         Math.abs(vertical) < 1e-12 ? 0 : vertical * segmentLength,
       ),
     );
+    if (end.y < radius) {
+      return;
+    }
     const branch = {
       start,
       end,
@@ -1790,7 +1810,7 @@ export function fanCoral_generate(params: {
         start: end,
         angle: tinyBranch_boundAngle(
           angle + sign * (0.18 + randFn() * 0.3),
-          minAngle,
+          angleRanges,
         ),
         parent: branch,
         distance: nextDistance,
@@ -1817,6 +1837,15 @@ export function fanCoral_generate(params: {
   if (![root_pt.x, root_pt.y, root_pt.z].every(Number.isFinite)) {
     throw new RangeError("Fan coral root point must be finite");
   }
+  if (
+    !Number.isFinite(tinyBranch_maxDeviation_deg) ||
+    tinyBranch_maxDeviation_deg < 0 ||
+    tinyBranch_maxDeviation_deg > 180
+  ) {
+    throw new RangeError(
+      "Tiny branch maximum deviation must be between 0 and 180 degrees",
+    );
+  }
 
   const normalScale = Math.max(
     Math.abs(root_normalVec.x),
@@ -1838,7 +1867,38 @@ export function fanCoral_generate(params: {
     horizontal.crossVectors(planeNormal, normal).normalize();
   }
   const depth = new THREE.Vector3().crossVectors(horizontal, normal).normalize();
-  const tinyBranch_minAngle = Math.atan2(-normal.y, horizontal.y);
+  const maxDeviation = tinyBranch_maxDeviation_deg * DEG2RAD;
+  const upAngle = Math.atan2(horizontal.y, normal.y);
+  const localAngleLimit = PI;
+  const angleRanges: AngleRange[] = [];
+  const minAngle = Math.max(
+    -localAngleLimit,
+    Math.atan2(-normal.y, horizontal.y) + (PI / 2 - maxDeviation),
+  );
+  const maxAngle = Math.min(localAngleLimit, upAngle + maxDeviation);
+  if (minAngle <= maxAngle) {
+    angleRanges.push({ min: minAngle, max: maxAngle });
+  }
+
+  // The allowed world-up sector can wrap across the local angle boundary.
+  const wrappedMin = Math.max(-localAngleLimit, upAngle - maxDeviation - TAU);
+  const wrappedMax = Math.min(localAngleLimit, upAngle + maxDeviation - TAU);
+  if (
+    wrappedMin <= wrappedMax &&
+    (angleRanges.length === 0 || wrappedMax > wrappedMin)
+  ) {
+    const first = angleRanges[0];
+    if (first && wrappedMax >= first.min) {
+      first.min = wrappedMin;
+    } else {
+      angleRanges.push({ min: wrappedMin, max: wrappedMax });
+    }
+  }
+  if (angleRanges.length === 0) {
+    throw new RangeError(
+      "Tiny branch deviation allows no growth above the root surface",
+    );
+  }
 
   const randFn = seedrandom(seedHash);
   const mainBranch_initialRadius = randRange({
@@ -1959,7 +2019,7 @@ export function fanCoral_generate(params: {
               ),
             angle: tinyBranch_boundAngle(
               branch.angle + sign * (0.65 + randFn() * 0.35),
-              tinyBranch_minAngle,
+              angleRanges,
             ),
             parent: branch,
             distance: 0,
@@ -1985,7 +2045,7 @@ export function fanCoral_generate(params: {
     if (!mainParents.has(tip)) {
       tipStarts.push({
         start: tip.end.clone(),
-        angle: tinyBranch_boundAngle(tip.angle, tinyBranch_minAngle),
+        angle: tinyBranch_boundAngle(tip.angle, angleRanges),
         parent: tip,
         distance: 0,
       });
@@ -1999,7 +2059,7 @@ export function fanCoral_generate(params: {
       growTinyBranch(
         growth,
         tinyBranch_radius,
-        tinyBranch_minAngle,
+        angleRanges,
         branchIndex,
         tinyBranches,
         next,
