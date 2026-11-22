@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import seedrandom from "seedrandom";
 
 import { TAU, UP_DIR, DEG2RAD, ZERO_VEC, PI, xxh } from "./const";
@@ -1346,6 +1346,92 @@ function taubinSmooth<T extends taubinSmooth_InputArray>(params: {
   return H;
 }
 
+function coralBaseRock_generate(seedHash: string) {
+  const baseRock_minHeight = 0.05;
+  const baseRock_maxHeight = 0.08;
+  const baseRock_minRadius = 0.12;
+  const baseRock_maxRadius = 0.17;
+  const baseRock_widthSegments = 32;
+  const baseRock_heightSegments = 16;
+  const baseRock_deformation = 0.22;
+  const rockRandFn = seedrandom(`${seedHash}/baseRock`);
+  const rockHeight = randRange({
+    a: baseRock_minHeight,
+    b: baseRock_maxHeight,
+    randFn: rockRandFn,
+  });
+  const rockRadius = randRange({
+    a: baseRock_minRadius,
+    b: baseRock_maxRadius,
+    randFn: rockRandFn,
+  });
+  const rockNoise = new FastNoiseLite(Math.floor(rockRandFn() * 2147483647));
+  rockNoise.SetFrequency(1.5);
+  const rockGeometry = new THREE.SphereGeometry(
+    1,
+    baseRock_widthSegments,
+    baseRock_heightSegments,
+    0,
+    TAU,
+    0,
+    PI / 2,
+  );
+  const rockPosition = rockGeometry.getAttribute("position");
+
+  let maxRockHeight = 0;
+  let maxRockRadius = 0;
+  for (let i = 0; i < rockPosition.count; i++) {
+    const x = rockPosition.getX(i);
+    const y = rockPosition.getY(i);
+    const z = rockPosition.getZ(i);
+    const deformation = 1 + baseRock_deformation * rockNoise.GetNoise(x, y, z);
+    const deformedX = x * deformation;
+    const deformedY = y * deformation;
+    const deformedZ = z * deformation;
+    rockPosition.setXYZ(i, deformedX, deformedY, deformedZ);
+    maxRockHeight = Math.max(maxRockHeight, deformedY);
+    maxRockRadius = Math.max(maxRockRadius, Math.hypot(deformedX, deformedZ));
+  }
+  rockGeometry.scale(
+    rockRadius / maxRockRadius,
+    rockHeight / maxRockHeight,
+    rockRadius / maxRockRadius,
+  );
+  const rockRimStart = rockPosition.count - baseRock_widthSegments - 1;
+  for (let i = rockRimStart; i < rockPosition.count; i++) {
+    rockPosition.setY(i, 0);
+  }
+  rockGeometry.computeVertexNormals();
+
+  const positions = Array.from(rockPosition.array);
+  const normals = Array.from(rockGeometry.getAttribute("normal").array);
+  const indices = Array.from(rockGeometry.getIndex()!.array);
+  const bottomCenter = rockPosition.count;
+  positions.push(0, 0, 0);
+  normals.push(0, -1, 0);
+  for (let i = 0; i <= baseRock_widthSegments; i++) {
+    positions.push(
+      rockPosition.getX(rockRimStart + i),
+      0,
+      rockPosition.getZ(rockRimStart + i),
+    );
+    normals.push(0, -1, 0);
+    if (i > 0) {
+      indices.push(bottomCenter, bottomCenter + i + 1, bottomCenter + i);
+    }
+  }
+  rockGeometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  rockGeometry.setAttribute(
+    "normal",
+    new THREE.Float32BufferAttribute(normals, 3),
+  );
+  rockGeometry.setIndex(indices);
+  return { geometry: rockGeometry, height: rockHeight };
+}
+
 export function fanCoral_generate(params: {
   root_pt: THREE.Vector3;
   root_normalVec: THREE.Vector3;
@@ -1391,13 +1477,6 @@ export function fanCoral_generate(params: {
   const tinyBranch_gapOnMain = 0.0025;
   const tinyBranch_segmentLenStep = 0.01;
   const tinyBranch_maxGrowthDistance = 0.21;
-  const baseRock_minHeight = 0.05;
-  const baseRock_maxHeight = 0.08;
-  const baseRock_minRadius = 0.12;
-  const baseRock_maxRadius = 0.17;
-  const baseRock_widthSegments = 32;
-  const baseRock_heightSegments = 16;
-  const baseRock_deformation = 0.22;
   const mainCoral_topDelta = 0.015;
   const collisionCellSize = 0.1;
   const radialSegments = 6;
@@ -2094,53 +2173,9 @@ export function fanCoral_generate(params: {
   }
   jointGeometry.dispose();
 
-  const rockRandFn = seedrandom(`${seedHash}/baseRock`);
-  const rockHeight = randRange({
-    a: baseRock_minHeight,
-    b: baseRock_maxHeight,
-    randFn: rockRandFn,
-  });
-  const rockRadius = randRange({
-    a: baseRock_minRadius,
-    b: baseRock_maxRadius,
-    randFn: rockRandFn,
-  });
-  const rockNoise = new FastNoiseLite(Math.floor(rockRandFn() * 2147483647));
-  rockNoise.SetFrequency(1.5);
-  const rockGeometry = new THREE.SphereGeometry(
-    1,
-    baseRock_widthSegments,
-    baseRock_heightSegments,
-    0,
-    TAU,
-    0,
-    PI / 2,
-  );
+  const { geometry: rockGeometry, height: rockHeight } =
+    coralBaseRock_generate(seedHash);
   const rockPosition = rockGeometry.getAttribute("position");
-  let maxRockHeight = 0;
-  let maxRockRadius = 0;
-  for (let i = 0; i < rockPosition.count; i++) {
-    const x = rockPosition.getX(i);
-    const y = rockPosition.getY(i);
-    const z = rockPosition.getZ(i);
-    const deformation = 1 + baseRock_deformation * rockNoise.GetNoise(x, y, z);
-    const deformedX = x * deformation;
-    const deformedY = y * deformation;
-    const deformedZ = z * deformation;
-    rockPosition.setXYZ(i, deformedX, deformedY, deformedZ);
-    maxRockHeight = Math.max(maxRockHeight, deformedY);
-    maxRockRadius = Math.max(maxRockRadius, Math.hypot(deformedX, deformedZ));
-  }
-  rockGeometry.scale(
-    rockRadius / maxRockRadius,
-    rockHeight / maxRockHeight,
-    rockRadius / maxRockRadius,
-  );
-  const rockRimStart = rockPosition.count - baseRock_widthSegments - 1;
-  for (let i = rockRimStart; i < rockPosition.count; i++) {
-    rockPosition.setY(i, 0);
-  }
-  rockGeometry.computeVertexNormals();
 
   const mainCoral_baseHeight = rockHeight - mainCoral_topDelta;
   for (let i = 1; i < geometryData.positions.length; i += 3) {
@@ -2166,24 +2201,6 @@ export function fanCoral_generate(params: {
     geometryData.indices.push(rockFirstVertex + rockIndex.getX(i));
   }
 
-  const rockBottomCenter = geometryData.positions.length / 3;
-  geometryData.positions.push(0, 0, 0);
-  geometryData.normals.push(0, -1, 0);
-  for (let i = 0; i <= baseRock_widthSegments; i++) {
-    geometryData.positions.push(
-      rockPosition.getX(rockRimStart + i),
-      0,
-      rockPosition.getZ(rockRimStart + i),
-    );
-    geometryData.normals.push(0, -1, 0);
-    if (i > 0) {
-      geometryData.indices.push(
-        rockBottomCenter,
-        rockBottomCenter + i + 1,
-        rockBottomCenter + i,
-      );
-    }
-  }
   rockGeometry.dispose();
 
   const geometry = new THREE.BufferGeometry();
@@ -2205,5 +2222,303 @@ export function fanCoral_generate(params: {
   mesh.quaternion.setFromRotationMatrix(
     new THREE.Matrix4().makeBasis(horizontal, normal, depth),
   );
+  return mesh;
+}
+
+export function plateCoral_generate(params: {
+  root_pt: THREE.Vector3;
+  root_normalVec: THREE.Vector3;
+  height: number;
+  material: THREE.MeshStandardMaterial;
+  seedHash: string;
+}) {
+  // Distances are relative to the coral's height before final normalization.
+  const bottomPlate_minRadius = 0.75;
+  const bottomPlate_maxRadius = 0.95;
+  const plateRadius_minReductionRate = 0.65;
+  const plateRadius_maxReductionRate = 0.8;
+  const plateBump_spacingDist = 0.02;
+  const plateBump_radius = 0.009;
+  const plate_thickness = 0.025;
+  const plate_levelSpacing = 0.1;
+  const plate_rimHeight = 0.3;
+  const stalk_radius = 0.035;
+  const plate_radialSegments = 96;
+  const plate_ringCnt = 16;
+  const { root_pt, root_normalVec, height, material, seedHash } = params;
+
+  // #region [sub]
+  const appendGeometry = (
+    geometry: THREE.BufferGeometry,
+    positions: number[],
+    normals: number[],
+    indices: number[],
+    offset: THREE.Vector3,
+    scale = new THREE.Vector3(1, 1, 1),
+  ) => {
+    const firstVertex = positions.length / 3;
+    const position = geometry.getAttribute("position");
+    const normal = geometry.getAttribute("normal");
+    const index = geometry.getIndex()!;
+    const transformedNormal = new THREE.Vector3();
+    for (let i = 0; i < position.count; i++) {
+      positions.push(
+        position.getX(i) * scale.x + offset.x,
+        position.getY(i) * scale.y + offset.y,
+        position.getZ(i) * scale.z + offset.z,
+      );
+      transformedNormal.set(
+        normal.getX(i) / scale.x,
+        normal.getY(i) / scale.y,
+        normal.getZ(i) / scale.z,
+      ).normalize();
+      normals.push(
+        transformedNormal.x,
+        transformedNormal.y,
+        transformedNormal.z,
+      );
+    }
+    for (let i = 0; i < index.count; i++) {
+      indices.push(firstVertex + index.getX(i));
+    }
+  };
+
+  const addPlate = (
+    radius: number,
+    elevation: number,
+    rimHeight: number,
+    randFn: RandomFunc,
+    bumpGeometry: THREE.SphereGeometry,
+    positions: number[],
+    normals: number[],
+    indices: number[],
+  ) => {
+    const edgePhase = randFn() * TAU;
+    const ripplePhase = randFn() * TAU;
+    const gridAngle = randFn() * TAU;
+    const noise = new FastNoiseLite(Math.floor(randFn() * 2147483647));
+    noise.SetFrequency(3);
+    const platePositions: number[] = [];
+    const plateIndices: number[] = [];
+    const ringSize = plate_radialSegments + 1;
+    const surfaceVertexCnt = 1 + plate_ringCnt * ringSize;
+
+    const edgeRadius = (angle: number) => {
+      return radius * (
+        1 + 0.045 * Math.sin(5 * angle + edgePhase) +
+        0.025 * Math.sin(9 * angle + ripplePhase)
+      );
+    };
+    const surfaceHeight = (x: number, z: number) => {
+      const fraction = Math.hypot(x, z) / radius;
+      return elevation + rimHeight * fraction * fraction +
+        0.012 * fraction * noise.GetNoise(x, z);
+    };
+    const triangulatedSurfaceHeight = (x: number, z: number) => {
+      const angle = (Math.atan2(z, x) + TAU) % TAU;
+      const segment = Math.floor(angle / TAU * plate_radialSegments);
+      for (let ring = 1; ring <= plate_ringCnt; ring++) {
+        const triangleCnt = ring === 1 ? 1 : 2;
+        const firstTriangle = ring === 1
+          ? segment
+          : plate_radialSegments +
+            (ring - 2) * plate_radialSegments * 2 + segment * 2;
+        for (let i = 0; i < triangleCnt; i++) {
+          const index = (firstTriangle + i) * 3;
+          const a = plateIndices[index] * 3;
+          const b = plateIndices[index + 1] * 3;
+          const c = plateIndices[index + 2] * 3;
+          const ax = platePositions[a];
+          const az = platePositions[a + 2];
+          const bx = platePositions[b] - ax;
+          const bz = platePositions[b + 2] - az;
+          const cx = platePositions[c] - ax;
+          const cz = platePositions[c + 2] - az;
+          const determinant = bx * cz - bz * cx;
+          const weightB = ((x - ax) * cz - (z - az) * cx) / determinant;
+          const weightC = (bx * (z - az) - bz * (x - ax)) / determinant;
+          const weightA = 1 - weightB - weightC;
+          if (weightA >= -1e-9 && weightB >= -1e-9 && weightC >= -1e-9) {
+            return weightA * platePositions[a + 1] +
+              weightB * platePositions[b + 1] +
+              weightC * platePositions[c + 1];
+          }
+        }
+      }
+      throw new Error("Unable to locate the plate surface beneath a bump");
+    };
+
+    for (let side = 0; side < 2; side++) {
+      const firstVertex = side * surfaceVertexCnt;
+      const thickness = side === 0 ? 0 : plate_thickness;
+      platePositions.push(0, elevation - thickness, 0);
+      for (let ring = 1; ring <= plate_ringCnt; ring++) {
+        for (let segment = 0; segment <= plate_radialSegments; segment++) {
+          const angle = segment === plate_radialSegments
+            ? 0
+            : TAU * segment / plate_radialSegments;
+          const distance = edgeRadius(angle) * ring / plate_ringCnt;
+          const x = Math.cos(angle) * distance;
+          const z = Math.sin(angle) * distance;
+          platePositions.push(x, surfaceHeight(x, z) - thickness, z);
+          if (segment < plate_radialSegments) {
+            const outer = firstVertex + 1 + (ring - 1) * ringSize + segment;
+            const triangles = ring === 1
+              ? [firstVertex, outer + 1, outer]
+              : [
+                  outer - ringSize, outer + 1, outer,
+                  outer - ringSize, outer - ringSize + 1, outer + 1,
+                ];
+            for (let i = 0; i < triangles.length; i += 3) {
+              if (side === 0) {
+                plateIndices.push(triangles[i], triangles[i + 1], triangles[i + 2]);
+              } else {
+                plateIndices.push(triangles[i], triangles[i + 2], triangles[i + 1]);
+              }
+            }
+          }
+        }
+      }
+    }
+    const rimStart = 1 + (plate_ringCnt - 1) * ringSize;
+    for (let i = 0; i < plate_radialSegments; i++) {
+      const top = rimStart + i;
+      const bottom = top + surfaceVertexCnt;
+      plateIndices.push(top, top + 1, bottom, top + 1, bottom + 1, bottom);
+    }
+    const plateGeometry = new THREE.BufferGeometry();
+    plateGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(platePositions, 3),
+    );
+    plateGeometry.setIndex(plateIndices);
+    plateGeometry.computeVertexNormals();
+    appendGeometry(plateGeometry, positions, normals, indices, ZERO_VEC);
+    plateGeometry.dispose();
+
+    const rowSpacing = plateBump_spacingDist * Math.sqrt(3) / 2;
+    const rowCnt = Math.ceil(radius * 1.07 / rowSpacing);
+    const columnCnt = Math.ceil(radius * 1.07 / plateBump_spacingDist);
+    const bumpScale = new THREE.Vector3(
+      plateBump_radius,
+      plateBump_radius * 0.75,
+      plateBump_radius,
+    );
+    const bumpCenter = new THREE.Vector3();
+    for (let row = -rowCnt; row <= rowCnt; row++) {
+      for (let column = -columnCnt; column <= columnCnt; column++) {
+        const gridX = (column + (Math.abs(row) % 2) * 0.5) * plateBump_spacingDist;
+        const gridZ = row * rowSpacing;
+        const x = gridX * Math.cos(gridAngle) - gridZ * Math.sin(gridAngle);
+        const z = gridX * Math.sin(gridAngle) + gridZ * Math.cos(gridAngle);
+        if (
+          Math.hypot(x, z) + plateBump_radius * 2 >
+          edgeRadius(Math.atan2(z, x))
+        ) {
+          continue;
+        }
+        const displacementNoise = THREE.MathUtils.clamp(
+          noise.GetNoise(x * 12, z * 12, 23),
+          -1,
+          1,
+        );
+        // Even maximum displacement leaves the sphere crossing the surface.
+        const displacement = bumpScale.y * 0.65 * displacementNoise;
+        bumpCenter.set(x, triangulatedSurfaceHeight(x, z) + displacement, z);
+        appendGeometry(
+          bumpGeometry, positions, normals, indices, bumpCenter, bumpScale,
+        );
+      }
+    }
+  };
+  // #endregion [sub]
+
+  if (!Number.isFinite(height) || height <= 0) {
+    throw new RangeError("Plate coral height must be a positive finite number");
+  }
+  if (![root_pt.x, root_pt.y, root_pt.z].every(Number.isFinite)) {
+    throw new RangeError("Plate coral root point must be finite");
+  }
+  const normalScale = Math.max(
+    Math.abs(root_normalVec.x),
+    Math.abs(root_normalVec.y),
+    Math.abs(root_normalVec.z),
+  );
+  if (
+    ![root_normalVec.x, root_normalVec.y, root_normalVec.z].every(Number.isFinite) ||
+    normalScale === 0
+  ) {
+    throw new RangeError("Plate coral root normal must be a finite nonzero vector");
+  }
+
+  const randFn = seedrandom(seedHash);
+  const plateCnt = 1 + Math.floor(randFn() * 3);
+  const bottomRadius = randRange({
+    a: bottomPlate_minRadius,
+    b: bottomPlate_maxRadius,
+    randFn,
+  });
+  const reductionRate = randRange({
+    a: plateRadius_minReductionRate,
+    b: plateRadius_maxReductionRate,
+    randFn,
+  });
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  const rock = coralBaseRock_generate(seedHash);
+  appendGeometry(rock.geometry, positions, normals, indices, ZERO_VEC);
+  rock.geometry.dispose();
+
+  const stalkBottom = rock.height * 0.4;
+  const stalkTop = rock.height + (plateCnt - 1) * plate_levelSpacing - plate_thickness;
+  const stalkGeometry = new THREE.CylinderGeometry(
+    stalk_radius,
+    stalk_radius,
+    stalkTop - stalkBottom,
+    24,
+  );
+  appendGeometry(
+    stalkGeometry,
+    positions,
+    normals,
+    indices,
+    new THREE.Vector3(0, (stalkTop + stalkBottom) / 2, 0),
+  );
+  stalkGeometry.dispose();
+
+  const bumpGeometry = new THREE.SphereGeometry(1, 8, 6);
+  for (let level = 0; level < plateCnt; level++) {
+    addPlate(
+      bottomRadius * reductionRate ** level,
+      rock.height + level * plate_levelSpacing,
+      plate_rimHeight * reductionRate ** level,
+      randFn,
+      bumpGeometry,
+      positions,
+      normals,
+      indices,
+    );
+  }
+  bumpGeometry.dispose();
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  geometry.computeBoundingBox();
+  const scale = height / geometry.boundingBox!.max.y;
+  geometry.scale(scale, scale, scale);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  const normal = new THREE.Vector3(
+    root_normalVec.x / normalScale,
+    root_normalVec.y / normalScale,
+    root_normalVec.z / normalScale,
+  ).normalize();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.copy(root_pt);
+  mesh.quaternion.setFromUnitVectors(UP_DIR, normal);
   return mesh;
 }
