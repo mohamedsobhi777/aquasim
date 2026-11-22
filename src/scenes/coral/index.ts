@@ -7,6 +7,8 @@ import { createColonies, type Colony } from './colonies';
 import { CLASS_LIST, FIELD_SIZE, SURFACE_Y } from './layout';
 import { createReefSeabed } from './terrain';
 
+import { createFanSway } from './fanSway';
+
 type HeightAt = (x: number, z: number) => number;
 
 /** Survey altitude for transects, as used in photo-quadrat reef monitoring. */
@@ -90,6 +92,10 @@ export const coralScene: SceneModule = {
 
     const seabed = createReefSeabed(seed, rng);
     const { group, colonies } = createColonies(seed, rng, seabed.heightAt);
+    const sway = createFanSway();
+    for (const colony of colonies) {
+      if (colony.kind === 'fan') sway.attach(colony.mesh, colony.mesh.material as THREE.MeshStandardMaterial);
+    }
     root.add(seabed.object, group);
 
     const largest = colonies.filter((c) => c.kind === 'brain').sort((a, b) => b.radius - a.radius)[0] ?? colonies[0];
@@ -113,7 +119,11 @@ export const coralScene: SceneModule = {
       groundHeight: seabed.heightAt,
       trajectories,
       setCaustics: seabed.setCaustics,
-      dispose: () => disposeTree(root),
+      setCurrent: sway.update,
+      dispose: () => {
+        sway.dispose();
+        disposeTree(root);
+      },
     };
   },
 };

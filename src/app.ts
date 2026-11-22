@@ -245,6 +245,7 @@ export class AquaSimApp {
     this.updateWater();
     const pixelScale = imageHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
     const current = CURRENT_DIRECTION.clone().multiplyScalar(this.settings.particles.currentSpeed);
+    this.scenario.setCurrent?.(this.clock.now, current);
     this.updateLod(camera, pixelScale);
     this.particles.sync(this.clock.now, position, current, pixelScale);
     this.particles.setWake(this.clock.now, this.track.all, this.settings.particles.wake);
