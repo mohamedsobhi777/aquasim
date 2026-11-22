@@ -215,7 +215,7 @@ export class CMApp {
 
     const fanCoral = fanCoral_generate({
       root_pt: new THREE.Vector3(0, 0, 0),
-      root_normalVec: new THREE.Vector3(0, 1, 0),
+      root_normalVec: new THREE.Vector3(1, 1, 0),
       height: 0.5,
       material: new THREE.MeshStandardMaterial({ color: "#e74230" }),
       seedHash: `${worldSeed}/coral/fan/1`,
