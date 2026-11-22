@@ -11,7 +11,10 @@
 
 ```javascript
 function <function_name>(<parameters>) {
-  /** <define constants>  */
+  /**
+   * Define constants that are used within the function. Constants mean values that
+   * do not change throughout the function execution.
+   * /
 
   // #region [sub]
 
@@ -23,6 +26,18 @@ function <function_name>(<parameters>) {
   // #endregion [sub]
 
   /** <main logic> */
+}
+```
+
+- Within a function with many sub functions, avoid defining "global" variables that can be accessed and modified by all sub functions. Instead, pass necessary data as parameters to the sub functions. For example, the following implementation are discouraged:
+
+```javascript
+function mainFunction() {
+  let sharedData = 0; // Discouraged
+
+  const subFunction = () => {
+    sharedData += 1; // Modifies the "global" variable
+  };
 }
 ```
 
