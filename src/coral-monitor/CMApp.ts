@@ -218,7 +218,7 @@ export class CMApp {
       root_normalVec: new THREE.Vector3(0, 1, 0),
       height: 0.5,
       material: new THREE.MeshStandardMaterial({ color: "#e74230" }),
-      seedHash: `${worldSeed}/coral/fan/4`,
+      seedHash: `${worldSeed}/coral/fan/3`,
     });
     scene.add(fanCoral);
   }

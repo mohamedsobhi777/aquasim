@@ -1391,6 +1391,14 @@ export function fanCoral_generate(params: {
   const tinyBranch_gapOnMain = 0.0025;
   const tinyBranch_segmentLenStep = 0.01;
   const tinyBranch_maxGrowthDistance = 0.21;
+  const baseRock_minHeight = 0.05;
+  const baseRock_maxHeight = 0.08;
+  const baseRock_minRadius = 0.12;
+  const baseRock_maxRadius = 0.17;
+  const baseRock_widthSegments = 32;
+  const baseRock_heightSegments = 16;
+  const baseRock_deformation = 0.22;
+  const mainCoral_topDelta = 0.015;
   const collisionCellSize = 0.1;
   const radialSegments = 6;
   const { root_pt, root_normalVec, height, material, seedHash } = params;
@@ -2085,6 +2093,98 @@ export function fanCoral_generate(params: {
     }
   }
   jointGeometry.dispose();
+
+  const rockRandFn = seedrandom(`${seedHash}/baseRock`);
+  const rockHeight = randRange({
+    a: baseRock_minHeight,
+    b: baseRock_maxHeight,
+    randFn: rockRandFn,
+  });
+  const rockRadius = randRange({
+    a: baseRock_minRadius,
+    b: baseRock_maxRadius,
+    randFn: rockRandFn,
+  });
+  const rockNoise = new FastNoiseLite(Math.floor(rockRandFn() * 2147483647));
+  rockNoise.SetFrequency(1.5);
+  const rockGeometry = new THREE.SphereGeometry(
+    1,
+    baseRock_widthSegments,
+    baseRock_heightSegments,
+    0,
+    TAU,
+    0,
+    PI / 2,
+  );
+  const rockPosition = rockGeometry.getAttribute("position");
+  let maxRockHeight = 0;
+  let maxRockRadius = 0;
+  for (let i = 0; i < rockPosition.count; i++) {
+    const x = rockPosition.getX(i);
+    const y = rockPosition.getY(i);
+    const z = rockPosition.getZ(i);
+    const deformation = 1 + baseRock_deformation * rockNoise.GetNoise(x, y, z);
+    const deformedX = x * deformation;
+    const deformedY = y * deformation;
+    const deformedZ = z * deformation;
+    rockPosition.setXYZ(i, deformedX, deformedY, deformedZ);
+    maxRockHeight = Math.max(maxRockHeight, deformedY);
+    maxRockRadius = Math.max(maxRockRadius, Math.hypot(deformedX, deformedZ));
+  }
+  rockGeometry.scale(
+    rockRadius / maxRockRadius,
+    rockHeight / maxRockHeight,
+    rockRadius / maxRockRadius,
+  );
+  const rockRimStart = rockPosition.count - baseRock_widthSegments - 1;
+  for (let i = rockRimStart; i < rockPosition.count; i++) {
+    rockPosition.setY(i, 0);
+  }
+  rockGeometry.computeVertexNormals();
+
+  const mainCoral_baseHeight = rockHeight - mainCoral_topDelta;
+  for (let i = 1; i < geometryData.positions.length; i += 3) {
+    geometryData.positions[i] += mainCoral_baseHeight;
+  }
+
+  const rockFirstVertex = geometryData.positions.length / 3;
+  const rockNormal = rockGeometry.getAttribute("normal");
+  const rockIndex = rockGeometry.getIndex()!;
+  for (let i = 0; i < rockPosition.count; i++) {
+    geometryData.positions.push(
+      rockPosition.getX(i),
+      rockPosition.getY(i),
+      rockPosition.getZ(i),
+    );
+    geometryData.normals.push(
+      rockNormal.getX(i),
+      rockNormal.getY(i),
+      rockNormal.getZ(i),
+    );
+  }
+  for (let i = 0; i < rockIndex.count; i++) {
+    geometryData.indices.push(rockFirstVertex + rockIndex.getX(i));
+  }
+
+  const rockBottomCenter = geometryData.positions.length / 3;
+  geometryData.positions.push(0, 0, 0);
+  geometryData.normals.push(0, -1, 0);
+  for (let i = 0; i <= baseRock_widthSegments; i++) {
+    geometryData.positions.push(
+      rockPosition.getX(rockRimStart + i),
+      0,
+      rockPosition.getZ(rockRimStart + i),
+    );
+    geometryData.normals.push(0, -1, 0);
+    if (i > 0) {
+      geometryData.indices.push(
+        rockBottomCenter,
+        rockBottomCenter + i + 1,
+        rockBottomCenter + i,
+      );
+    }
+  }
+  rockGeometry.dispose();
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
