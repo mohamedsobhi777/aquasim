@@ -37,7 +37,7 @@ function reefTransect(heightAt: HeightAt): Trajectory {
 }
 
 /** Circles one colony while descending, for multi-view images of a single coral. */
-function colonyOrbit(colony: Colony, heightAt: HeightAt): Trajectory {
+function colonyOrbit(colony: Colony, heightAt: HeightAt, name = 'colony-orbit'): Trajectory {
   const eye: THREE.Vector3[] = [];
   const target: THREE.Vector3[] = [];
   const steps = 240;
@@ -52,7 +52,7 @@ function colonyOrbit(colony: Colony, heightAt: HeightAt): Trajectory {
     eye.push(new THREE.Vector3(x, y, z));
     target.push(centre);
   }
-  return lookAtTrajectory('colony-orbit', eye, target, 0.4);
+  return lookAtTrajectory(name, eye, target, 0.4);
 }
 
 /** Low glide through the colonies, close enough to the bottom to lift sediment. */
@@ -98,6 +98,11 @@ export const coralScene: SceneModule = {
       colonyOrbit(largest, seabed.heightAt),
       patchGlide(colonies, seabed.heightAt),
     ];
+
+    for (const kind of ['fan', 'plate'] as const) {
+      const colony = colonies.find((c) => c.kind === kind);
+      if (colony) trajectories.push(colonyOrbit(colony, seabed.heightAt, `${kind}-coral-orbit`));
+    }
 
     return {
       root,

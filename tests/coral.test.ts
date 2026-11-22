@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { createRng, hashString, weightedPick } from '../src/core/rng';
+import { fanCoral_generate, plateCoral_generate } from '../src/scenes/coral/fanAndPlate';
 import { brainCoral_generate, branchingCoral_generate } from '../src/scenes/coral/reef';
 
 const branching = (seedHash: string): THREE.Mesh =>
@@ -76,4 +77,29 @@ describe('coral generators', () => {
     expect(Array.from(positions(a)).every(Number.isFinite)).toBe(true);
     expect(positions(brain('7/coral/brain/0'))).toEqual(positions(a));
   });
+});
+
+it.each([
+  ['fan', fanCoral_generate],
+  ['plate', plateCoral_generate],
+] as const)('reproduces %s geometry at a sloped reef site', (kind, generate) => {
+  const root = new THREE.Vector3(12, -8, 3);
+  const normal = new THREE.Vector3(0.2, 1, -0.1).normalize();
+  const params = {
+    root_pt: root,
+    root_normalVec: normal,
+    material: new THREE.MeshStandardMaterial(),
+    height: 0.6,
+    seedHash: '42/coral/' + kind,
+    reefDetail: true,
+  };
+  const mesh = generate(params);
+  const data = positions(mesh);
+  expect(data.length).toBeGreaterThan(0);
+  expect(data.every(Number.isFinite)).toBe(true);
+  expect(mesh.position.toArray()).toEqual(root.toArray());
+  expect(new THREE.Vector3(0, 1, 0).applyQuaternion(mesh.quaternion).dot(normal)).toBeCloseTo(1);
+  const replay = positions(generate(params));
+  expect(replay.length).toBe(data.length);
+  expect(data.every((value, index) => value === replay[index])).toBe(true);
 });

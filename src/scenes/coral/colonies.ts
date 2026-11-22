@@ -3,6 +3,7 @@ import type { Rng } from '../../core/rng';
 import { tagSemantic } from '../../core/semantics';
 import { patchUnderwater } from '../../core/water';
 import { CLASSES, FIELD_SIZE } from './layout';
+import { fanCoral_generate, plateCoral_generate } from './fanAndPlate';
 import { brainCoral_generate, branchingCoral_generate } from './reef';
 
 const PATCH_COUNT = 5;
@@ -19,7 +20,13 @@ const PLACEMENT_ATTEMPTS = 40;
 const BRANCHING_COLORS = ['#b5734f', '#8e5a8a', '#c99a5b', '#6f7d5a'];
 const BRAIN_COLORS = ['#8aa04a', '#b59a5a', '#7b8c6a'];
 
-export type ColonyKind = 'branching' | 'brain';
+const colonyClasses = {
+  branching: CLASSES.branchingCoral,
+  brain: CLASSES.brainCoral,
+  fan: CLASSES.fanCoral,
+  plate: CLASSES.plateCoral,
+};
+export type ColonyKind = keyof typeof colonyClasses;
 
 export interface Colony {
   kind: ColonyKind;
@@ -94,7 +101,7 @@ export function createColonies(
     const mesh = build(base, normal);
     mesh.name = `${kind}-coral-${index}`;
     mesh.castShadow = mesh.receiveShadow = true;
-    tagSemantic(mesh, kind === 'brain' ? CLASSES.brainCoral.id : CLASSES.branchingCoral.id);
+    tagSemantic(mesh, colonyClasses[kind].id);
     group.add(mesh);
     colonies.push({ kind, mesh, base, radius, height });
   };
@@ -145,5 +152,28 @@ export function createColonies(
     );
   }
 
+  for (const kind of ['fan', 'plate'] as const) {
+    const generate = kind === 'fan' ? fanCoral_generate : plateCoral_generate;
+    for (let i = 0; i < PATCH_COUNT; i++) {
+      const height = kind === 'fan' ? rng.range(0.65, 1.15) : rng.range(0.25, 0.42);
+      const color = kind === 'fan' ? '#b56999' : '#ad592b';
+      const radius = height * (kind === 'fan' ? 1.2 : 3.2);
+      add(
+        kind,
+        i,
+        radius,
+        (base, normal) =>
+          generate({
+            root_pt: base,
+            root_normalVec: normal,
+            height,
+            material: coralMaterial(color),
+            seedHash: `${seed}/coral/${kind}/${i}`,
+            reefDetail: true,
+          }),
+        height,
+      );
+    }
+  }
   return { group, colonies };
 }
