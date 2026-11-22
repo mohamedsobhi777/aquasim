@@ -814,7 +814,7 @@ export function brainCoral_generate(params: {
   /** Segments along the shorter side (default 384, about 320k triangles). */
   segments?: number;
 }) {
-  const sphere_segCntMinConstraint = params.segments ?? 384;
+  const sphere_segCntMinConstraint = params.segments ?? 512;
 
   /** Should be smaller than sphere_segCntMinConstraint */
   const brainPatternTextureImg_minSizeConstraint = 256;
